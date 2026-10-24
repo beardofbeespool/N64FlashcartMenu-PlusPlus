@@ -10,7 +10,7 @@
 #include "path.h"
 
 #define FAVORITES_COUNT 100 /**< Maximum number of favorite items */
-#define HISTORY_COUNT 8 /**< Maximum number of history items */
+#define HISTORY_COUNT 100 /**< Maximum number of history items */
 
 /** @brief Bookkeeping item types enumeration */
 typedef enum {
@@ -91,5 +91,16 @@ void bookkeeping_favorite_remove(bookkeeping_t *bookkeeping, int selection);
  * @return The index of the favorite item, or -1 if not found.
  */
 int bookkeeping_favorite_find(bookkeeping_t *bookkeeping, path_t *primary_path, path_t *secondary_path, bookkeeping_item_types_t type);
+
+/**
+ * @brief Swap two favorites, changing their order.
+ *
+ * The change is not saved, call bookkeeping_save() when done reordering.
+ *
+ * @param bookkeeping The bookkeeping structure.
+ * @param first The index of the first favorite item.
+ * @param second The index of the second favorite item.
+ */
+void bookkeeping_favorite_swap(bookkeeping_t *bookkeeping, int first, int second);
 
 #endif /* BOOKKEEPING_H__ */

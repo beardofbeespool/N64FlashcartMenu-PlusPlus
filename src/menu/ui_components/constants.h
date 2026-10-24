@@ -277,7 +277,7 @@
  * @def BACKGROUND_EMPTY_COLOR
  * @brief Color used when no background image is present (RGBA8888).
  */
-#define BACKGROUND_EMPTY_COLOR          RGBA32(0x00, 0x00, 0x00, 0xFF)
+#define BACKGROUND_EMPTY_COLOR          RGBA32(0x0E, 0x16, 0x30, 0xFF)
 /**
  * @def BACKGROUND_OVERLAY_COLOR
  * @brief Overlay color for the background (RGBA8888, semi-transparent).
@@ -288,78 +288,96 @@
  * @def BORDER_COLOR
  * @brief Color of UI borders (RGBA8888).
  */
-#define BORDER_COLOR                    RGBA32(0xFF, 0xFF, 0xFF, 0xFF)
+#define BORDER_COLOR                    RGBA32(0x8F, 0xB0, 0xF0, 0xFF)
 
 /**
  * @def PROGRESSBAR_BG_COLOR
  * @brief Background color of the progress bar (RGBA8888).
  */
-#define PROGRESSBAR_BG_COLOR            RGBA32(0x00, 0x00, 0x00, 0xFF)
+#define PROGRESSBAR_BG_COLOR            RGBA32(0x0A, 0x10, 0x24, 0xFF)
 /**
  * @def PROGRESSBAR_DONE_COLOR
  * @brief Color of the completed portion of the progress bar (RGBA8888).
  */
-#define PROGRESSBAR_DONE_COLOR          RGBA32(0x3B, 0x7C, 0xF5, 0xFF)
+#define PROGRESSBAR_DONE_COLOR          RGBA32(0x4A, 0x90, 0xFF, 0xFF)
 
 /**
  * @def SCROLLBAR_BG_COLOR
  * @brief Background color of the scrollbar (RGBA8888).
  */
-#define SCROLLBAR_BG_COLOR              RGBA32(0x3F, 0x3F, 0x3F, 0xFF)
+#define SCROLLBAR_BG_COLOR              RGBA32(0x1C, 0x28, 0x4C, 0xFF)
 /**
  * @def SCROLLBAR_INACTIVE_COLOR
  * @brief Inactive color of the scrollbar (RGBA8888).
  */
-#define SCROLLBAR_INACTIVE_COLOR        RGBA32(0x5F, 0x5F, 0x5F, 0xFF)
+#define SCROLLBAR_INACTIVE_COLOR        RGBA32(0x2C, 0x3A, 0x62, 0xFF)
 /**
  * @def SCROLLBAR_POSITION_COLOR
  * @brief Color of the scrollbar position indicator (RGBA8888).
  */
-#define SCROLLBAR_POSITION_COLOR        RGBA32(0x7F, 0x7F, 0x7F, 0xFF)
+#define SCROLLBAR_POSITION_COLOR        RGBA32(0xF0, 0xC0, 0x40, 0xFF)
 
 /**
  * @def DIALOG_BG_COLOR
  * @brief Background color for dialog boxes (RGBA8888).
  */
-#define DIALOG_BG_COLOR                 RGBA32(0x00, 0x00, 0x00, 0xFF)
+#define DIALOG_BG_COLOR                 RGBA32(0x12, 0x1C, 0x3C, 0xFF)
 
 /**
  * @def BOXART_LOADING_COLOR
  * @brief Color used while boxart is loading (RGBA8888).
  */
-#define BOXART_LOADING_COLOR            RGBA32(0x00, 0x00, 0x00, 0xFF)
+#define BOXART_LOADING_COLOR            RGBA32(0x0A, 0x10, 0x24, 0xFF)
 
 /**
  * @def FILE_LIST_HIGHLIGHT_COLOR
  * @brief Highlight color for file list entries (RGBA8888).
  */
-#define FILE_LIST_HIGHLIGHT_COLOR       RGBA32(0x7F, 0x7F, 0x7F, 0xFF)
+#define FILE_LIST_HIGHLIGHT_COLOR       RGBA32(0x2E, 0x5B, 0xD6, 0xFF)
+
+/**
+ * @def HIGHLIGHT_OUTLINE_COLOR
+ * @brief Outline color around the selected list row (RGBA8888).
+ */
+#define HIGHLIGHT_OUTLINE_COLOR         RGBA32(0xFF, 0xD0, 0x40, 0xFF)
+
+/**
+ * @def HIGHLIGHT_OUTLINE_THICKNESS
+ * @brief Thickness in pixels of the outline around the selected list row.
+ */
+#define HIGHLIGHT_OUTLINE_THICKNESS     (2)
+
+/**
+ * @def FILE_LIST_MOVE_HIGHLIGHT_COLOR
+ * @brief Highlight color for a list entry that is being moved (RGBA8888).
+ */
+#define FILE_LIST_MOVE_HIGHLIGHT_COLOR  RGBA32(0xC0, 0x7A, 0x10, 0xFF)
 
 /**
  * @def CONTEXT_MENU_HIGHLIGHT_COLOR
  * @brief Highlight color for context menu entries (RGBA8888).
  */
-#define CONTEXT_MENU_HIGHLIGHT_COLOR    RGBA32(0x7F, 0x7F, 0x7F, 0xFF)
+#define CONTEXT_MENU_HIGHLIGHT_COLOR    RGBA32(0x2E, 0x5B, 0xD6, 0xFF)
 
 /**
  * @def TAB_INACTIVE_BORDER_COLOR
  * @brief Border color for inactive tabs (RGBA8888).
  */
-#define TAB_INACTIVE_BORDER_COLOR       RGBA32(0x5F, 0x5F, 0x5F, 0xFF)
+#define TAB_INACTIVE_BORDER_COLOR       RGBA32(0x3A, 0x4A, 0x7A, 0xFF)
 /**
  * @def TAB_ACTIVE_BORDER_COLOR
  * @brief Border color for active tabs (RGBA8888).
  */
-#define TAB_ACTIVE_BORDER_COLOR         RGBA32(0xFF, 0xFF, 0xFF, 0xFF)
+#define TAB_ACTIVE_BORDER_COLOR         RGBA32(0x8F, 0xB0, 0xF0, 0xFF)
 /**
  * @def TAB_INACTIVE_BACKGROUND_COLOR
  * @brief Background color for inactive tabs (RGBA8888).
  */
-#define TAB_INACTIVE_BACKGROUND_COLOR   RGBA32(0x3F, 0x3F, 0x3F, 0xFF)
+#define TAB_INACTIVE_BACKGROUND_COLOR   RGBA32(0x18, 0x22, 0x48, 0xFF)
 /**
  * @def TAB_ACTIVE_BACKGROUND_COLOR
  * @brief Background color for active tabs (RGBA8888).
  */
-#define TAB_ACTIVE_BACKGROUND_COLOR     RGBA32(0x6F, 0x6F, 0x6F, 0xFF)
+#define TAB_ACTIVE_BACKGROUND_COLOR     RGBA32(0x2E, 0x5B, 0xD6, 0xFF)
 
 #endif /* COMPONENTS_CONSTANTS_H__ */

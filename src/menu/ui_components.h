@@ -80,6 +80,19 @@ typedef struct {
 void ui_components_box_draw(int x0, int y0, int x1, int y1, color_t color);
 
 /**
+ * @brief Draw the highlight for a selected list row.
+ * 
+ * Fills the row and draws an outline inside its bounds, so neighbouring rows are not covered.
+ * 
+ * @param x0 Starting x-coordinate.
+ * @param y0 Starting y-coordinate.
+ * @param x1 Ending x-coordinate.
+ * @param y1 Ending y-coordinate.
+ * @param color Fill color of the highlight.
+ */
+void ui_components_highlight_draw(int x0, int y0, int x1, int y1, color_t color);
+
+/**
  * @brief Draw a border component.
  * 
  * @param x0 Starting x-coordinate.

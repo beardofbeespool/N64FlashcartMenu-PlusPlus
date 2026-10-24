@@ -149,7 +149,7 @@ void ui_components_context_menu_draw(component_context_menu_t *cm) {
     int highlight_height = (layout->bbox.y1 - layout->bbox.y0) / layout->nlines;
     int highlight_y = VISIBLE_AREA_Y0 + layout->bbox.y0 + ((cm->row_selected) * highlight_height);
 
-    ui_components_box_draw(
+    ui_components_highlight_draw(
         highlight_x0,
         highlight_y,
         highlight_x1,

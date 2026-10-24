@@ -27,6 +27,29 @@ void ui_components_box_draw (int x0, int y0, int x1, int y1, color_t color) {
 }
 
 /**
+ * @brief Draw the highlight for a selected list row.
+ * 
+ * @param x0 The x-coordinate of the top-left corner.
+ * @param y0 The y-coordinate of the top-left corner.
+ * @param x1 The x-coordinate of the bottom-right corner.
+ * @param y1 The y-coordinate of the bottom-right corner.
+ * @param color The fill color of the highlight.
+ */
+void ui_components_highlight_draw (int x0, int y0, int x1, int y1, color_t color) {
+    int t = HIGHLIGHT_OUTLINE_THICKNESS;
+
+    rdpq_mode_push();
+        rdpq_set_mode_fill(color);
+        rdpq_fill_rectangle(x0, y0, x1, y1);
+        rdpq_set_mode_fill(HIGHLIGHT_OUTLINE_COLOR);
+        rdpq_fill_rectangle(x0, y0, x1, y0 + t);
+        rdpq_fill_rectangle(x0, y1 - t, x1, y1);
+        rdpq_fill_rectangle(x0, y0, x0 + t, y1);
+        rdpq_fill_rectangle(x1 - t, y0, x1, y1);
+    rdpq_mode_pop();
+}
+
+/**
  * @brief Draw a border with the specified color.
  * 
  * @param x0 The x-coordinate of the top-left corner.

@@ -9,7 +9,7 @@ static char *settings_path = NULL;
 
 
 static settings_t init = {
-    .schema_revision = 1,
+    .schema_revision = 2,
     .first_run = true,
     .pal60_enabled = false,
     .force_progressive_scan = false,
@@ -34,7 +34,7 @@ static settings_t init = {
     /* Beta feature flags (should always init to default) */
     .show_browser_file_extensions = true,
     .show_browser_rom_tags = true,
-    .wrap_file_list_scrolling = false,
+    .wrap_file_list_scrolling = true,
     .rumble_enabled = false,
 };
 
@@ -87,6 +87,13 @@ void settings_load (settings_t *settings) {
     settings->rumble_enabled = ini_get_bool(ini, "menu_beta_flag", "rumble_enabled", init.rumble_enabled);
 
     ini_free(ini);
+
+    // Revision 2 made list wrap-around the default, apply it once to existing configs
+    if (settings->schema_revision < 2) {
+        settings->wrap_file_list_scrolling = true;
+        settings->schema_revision = 2;
+        settings_save(settings);
+    }
 }
 
 void settings_save (settings_t *settings) {

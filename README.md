@@ -17,7 +17,11 @@ This menu is not affiliated with any particular flashcart and does not necessari
 ## About this fork
 This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodnikowy/N64FlashcartMenu) V0.3.5, not an official release. It adds these features for the SummerCart64:
 * **Autoload last game:** launching a game makes it the autoload target, so the console boots straight back into your last game. Hold `START` while powering on to get the menu instead.
-* **100 favorites:** the Favorites tab holds up to 100 games instead of 8, and the list scrolls.
+* **100 favorites and 100 history entries:** instead of 8 each.
+* **Split-view Favorites and History:** a one-line-per-game list on the left, and the selected game's title, details and box art on the right.
+* **Reorder favorites:** pick a game up with `L`/`Z`, move it with Up/Down, drop it with `L`/`Z`.
+* **Wrap-around lists:** Up at the top of the file list, Favorites or History jumps to the bottom, and Down at the bottom jumps to the top.
+* **Higher-contrast default theme:** navy background, blue tabs, and a blue highlight with a gold outline on the selected row.
 * **Quick launch:** press `START` on a game in the file list, History or Favorites to launch it without opening the game info screen.
 * **One-button favorites:** press `L` or `Z` on a game in the file list, or D-pad/C `▲` on the game info screen, to add or remove it. Favorited games are marked with a yellow `*` in the file list.
 * **Optional saves root folder:** keep all saves in one folder that mirrors your ROM folders, instead of next to each ROM. Off by default.
@@ -32,6 +36,8 @@ This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodniko
 | File list | `R` → *Set current directory as saves root* | Use the current folder as the saves root |
 | File list | `A` on a ROM | Game info screen (unchanged) |
 | History / Favorites | `START` on an N64 ROM | Launch the game immediately |
+| Favorites | `L` / `Z` | Pick up the selected game (amber highlight); Up/Down moves it, `L` / `Z`, `A` or `B` drops it |
+| Favorites | `R` | Remove the selected game (unchanged) |
 | Game info screen | D-pad `▲` or C-`▲` | Add to / remove from favorites |
 | Menu Settings | *Saves Root: Off* | Turn the saves root off again |
 
@@ -39,10 +45,14 @@ This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodniko
 * `src/menu/views/load_rom.c`: after a successful ROM load, the ROM's folder and filename are saved as the autoload target. This is skipped when the boot was itself an autoload, so the SD card is not rewritten on every power-on.
 * `src/menu/views/load_rom.c`: removed the `free()` calls in `set_autoload_type`, which crashed when setting autoload from the ROM information screen.
 * `src/menu/views/startup.c`: the hold-`START` path now assigns heap strings (`strdup("")`) instead of string literals, so setting a new autoload afterwards does not free a literal. Added `#include <string.h>`.
-* `src/menu/bookkeeping.h`: raised `FAVORITES_COUNT` from 8 to 100.
+* `src/menu/bookkeeping.h`: raised `FAVORITES_COUNT` and `HISTORY_COUNT` from 8 to 100.
 * `src/menu/ini_parser.c`: raised `INI_MAX_PAIRS` from 64 to 512. Each favorite uses 3 keys, so the old cap stopped saving after about 21 favorites.
 * `src/menu/bookkeeping.c`: empty history and favorite slots are no longer written to the history file, so its size follows the number of entries actually used. Existing files still load.
-* `src/menu/views/history_favorites.c`: the History and Favorites tabs now scroll, keep the selection centered like the file browser, show a scrollbar, and only draw the 8 visible entries. `START` launches the selected game.
+* `src/menu/views/history_favorites.c`: the History and Favorites tabs are a split view. The left column is a scrolling one-line-per-game list (file names without extensions) with its scrollbar as the divider; the right panel shows the selected game's title, position in the list, release date, players, Expansion Pak and Rumble Pak info, and box art. The info and box art load after the selection rests for 10 frames, so scrolling stays fast. `START` launches the selected game, `L`/`Z` reorders favorites, and the lists wrap around.
+* `src/menu/bookkeeping.c`: new `bookkeeping_favorite_swap()` for reordering. The new order is saved once, when the game is dropped.
+* `src/menu/settings.c`: `wrap_file_list_scrolling` now defaults to on. The settings schema revision is now 2, and older configs have wrap-around switched on once when first loaded.
+* `src/menu/ui_components/constants.h`, `src/menu/fonts.c`: new default color palette, and a lighter gray text color for readability on navy.
+* `src/menu/ui_components/common.c`: new `ui_components_highlight_draw()`, a filled row with a 2 px gold outline, used by the file list, Favorites/History, context menus and the cheat editor.
 * `src/menu/actions.c`, `src/menu/menu_state.h`: new `favorite` action, triggered once per press of D-pad up or C-up (the analog stick is ignored so a nudge can't toggle it).
 * `src/menu/bookkeeping.c`: new `bookkeeping_favorite_find()` to check whether a game is already a favorite.
 * `src/menu/views/load_rom.c`: the game info screen shows the favorite status under the title and toggles it with `▲`. A quick launch skips this screen, but still stops at the Expansion Pak warning when a game needs one.
@@ -67,7 +77,8 @@ Copy `output/sc64menu.n64` to the root of your SD card.
 * If the autoload ROM is moved, renamed or deleted, hold `START` at power-on to get back to the menu.
 * The autoload target is stored in the `[autoload]` section of `menu/config.ini` on the SD card.
 * In the Favorites tab, Up/Down moves one entry and the fast-scroll button jumps 8. `R` removes the selected favorite.
-* When all 100 favorite slots are full, adding another drops the oldest one at the bottom of the list.
+* When all 100 favorite slots are full, adding another drops the one at the bottom of the list. History drops its oldest entry the same way.
+* Box art in the Favorites and History panels needs the metadata pack in `menu/metadata/`. Without it the panel shows the title and details only.
 * Favorites and history share one file, which is rewritten on every game launch. With 100 favorites this is roughly 15–20 KB.
 * Only N64 ROMs can be favorited. Emulator games (NES, SNES, Game Boy, …) can be quick launched but don't appear in History or Favorites.
 * 64DD disks in History or Favorites open their load screen with `START`, the same as `A`.

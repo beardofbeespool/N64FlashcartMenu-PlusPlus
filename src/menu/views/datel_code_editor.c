@@ -323,7 +323,7 @@ void cheat_code_list_draw (cheat_file_code_t *list, int entries, int selected) {
         int highlight_height = (layout->bbox.y1 - layout->bbox.y0) / layout->nlines;
         int highlight_y = VISIBLE_AREA_Y0 + TEXT_MARGIN_VERTICAL + TAB_HEIGHT + TEXT_OFFSET_VERTICAL + ((selected - starting_position) * highlight_height);
 
-        ui_components_box_draw(
+        ui_components_highlight_draw(
             FILE_LIST_HIGHLIGHT_X,
             highlight_y,
             FILE_LIST_HIGHLIGHT_X + FILE_LIST_HIGHLIGHT_WIDTH,

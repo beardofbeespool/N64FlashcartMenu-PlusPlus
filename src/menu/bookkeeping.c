@@ -323,3 +323,21 @@ int bookkeeping_favorite_find(bookkeeping_t *bookkeeping, path_t *primary_path, 
 
     return -1;
 }
+
+/**
+ * @brief Swap two items in the bookkeeping favorites.
+ * 
+ * @param bookkeeping Pointer to the bookkeeping structure.
+ * @param first Index of the first item.
+ * @param second Index of the second item.
+ */
+void bookkeeping_favorite_swap(bookkeeping_t *bookkeeping, int first, int second) {
+    if((first < 0) || (first >= FAVORITES_COUNT) || (second < 0) || (second >= FAVORITES_COUNT)) {
+        return;
+    }
+
+    // items only hold pointers, so swapping the structs moves ownership without copying paths
+    bookkeeping_item_t tmp = bookkeeping->favorite_items[first];
+    bookkeeping->favorite_items[first] = bookkeeping->favorite_items[second];
+    bookkeeping->favorite_items[second] = tmp;
+}
