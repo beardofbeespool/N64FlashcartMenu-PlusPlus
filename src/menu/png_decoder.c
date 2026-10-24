@@ -27,6 +27,9 @@ typedef struct {
 
 static png_decoder_t *decoder;
 
+/** @brief Largest PNG file that is read into memory in one go before decoding. */
+#define PNG_PRELOAD_MAX_SIZE (256 * 1024)
+
 /**
  * @brief Deinitialize the PNG decoder.
  * 
@@ -160,6 +163,29 @@ png_err_t png_decoder_start (char *path, int max_width, int max_height, png_call
         return PNG_ERR_NO_FILE;
     }
     setbuf(decoder->f, NULL);
+
+    // Small files (box art is ~40 KB) are read in one go: a single large read lets the
+    // SD card transfer many sectors per command, instead of the decoder pulling the file
+    // in small pieces that each cost an SD access. Larger images keep streaming.
+    long file_size = -1;
+    if (fseek(decoder->f, 0, SEEK_END) == 0) {
+        file_size = ftell(decoder->f);
+        rewind(decoder->f);
+    }
+    if ((file_size > 0) && (file_size <= PNG_PRELOAD_MAX_SIZE)) {
+        uint8_t *buf = malloc(file_size);
+        if (buf != NULL) {
+            if (fread(buf, file_size, 1, decoder->f) == 1) {
+                fclose(decoder->f);
+                decoder->f = NULL;
+                decoder->mem_buf = buf;
+                decoder->mem_buf_size = file_size;
+            } else {
+                free(buf);
+                rewind(decoder->f);
+            }
+        }
+    }
 
     if ((decoder->ctx = spng_ctx_new(SPNG_CTX_IGNORE_ADLER32)) == NULL) {
         png_decoder_deinit(false);
