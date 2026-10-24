@@ -15,12 +15,18 @@ This menu is not affiliated with any particular flashcart and does not necessari
 > New users are invited to read the latest [Documentation / User Guide](./docs/00_index.md).
 
 ## About this fork
-This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodnikowy/N64FlashcartMenu) V0.3.5, not an official release. It adds one behavior for the SummerCart64: **launching a game makes it the autoload target, so the console boots straight back into your last game. Hold `START` while powering on to get the menu instead.**
+This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodnikowy/N64FlashcartMenu) V0.3.5, not an official release. It adds two features for the SummerCart64:
+* **Autoload last game:** launching a game makes it the autoload target, so the console boots straight back into your last game. Hold `START` while powering on to get the menu instead.
+* **100 favorites:** the Favorites tab holds up to 100 games instead of 8, and the list scrolls.
 
 ### What changed
 * `src/menu/views/load_rom.c`: after a successful ROM load, the ROM's folder and filename are saved as the autoload target. This is skipped when the boot was itself an autoload, so the SD card is not rewritten on every power-on.
 * `src/menu/views/load_rom.c`: removed the `free()` calls in `set_autoload_type`, which crashed when setting autoload from the ROM information screen.
 * `src/menu/views/startup.c`: the hold-`START` path now assigns heap strings (`strdup("")`) instead of string literals, so setting a new autoload afterwards does not free a literal. Added `#include <string.h>`.
+* `src/menu/bookkeeping.h`: raised `FAVORITES_COUNT` from 8 to 100.
+* `src/menu/ini_parser.c`: raised `INI_MAX_PAIRS` from 64 to 512. Each favorite uses 3 keys, so the old cap stopped saving after about 21 favorites.
+* `src/menu/bookkeeping.c`: empty history and favorite slots are no longer written to the history file, so its size follows the number of entries actually used. Existing files still load.
+* `src/menu/views/history_favorites.c`: the History and Favorites tabs now scroll, keep the selection centered like the file browser, show a scrollbar, and only draw the 8 visible entries.
 
 ### Building
 The upstream autoload code is disabled by default, so it must be enabled with a build flag. Open the repo in the `N64FlashcartMenu-ci` dev container, then:
@@ -37,6 +43,9 @@ Copy `output/sc64menu.n64` to the root of your SD card.
 * The console's reset button goes through startup again, so it relaunches the last game. Hold `START` while resetting to reach the menu.
 * If the autoload ROM is moved, renamed or deleted, hold `START` at power-on to get back to the menu.
 * The autoload target is stored in the `[autoload]` section of `menu/config.ini` on the SD card.
+* In the Favorites tab, Up/Down moves one entry and the fast-scroll button jumps 8. `R` removes the selected favorite.
+* When all 100 favorite slots are full, adding another drops the oldest one at the bottom of the list.
+* Favorites and history share one file, which is rewritten on every game launch. With 100 favorites this is roughly 15–20 KB.
 * Tested on a SummerCart64 only.
 
 ## Flashcart Support
