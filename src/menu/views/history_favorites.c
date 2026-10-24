@@ -132,8 +132,77 @@ static void item_reorder_finish(menu_t *menu) {
     }
 }
 
+// Stays at the same place in the list, now on the game that moved up into it
+static void item_removed(int removed) {
+    int count = item_count();
+    selected_item = (count == 0) ? -1 : ((removed < count) ? removed : count - 1);
+    // the index may be unchanged but now points at another game
+    ui_components_game_panel_free();
+    panel_item = -1;
+}
+
+static void remove_selected(menu_t *menu, void *arg) {
+    if(selected_item == -1) {
+        return;
+    }
+
+    int removed = selected_item;
+    if(tab_context == BOOKKEEPING_TAB_CONTEXT_FAVORITE) {
+        bookkeeping_favorite_remove(&menu->bookkeeping, removed);
+    } else {
+        bookkeeping_history_remove(&menu->bookkeeping, removed);
+    }
+    item_removed(removed);
+}
+
+static void remove_all(menu_t *menu, void *arg) {
+    if(tab_context == BOOKKEEPING_TAB_CONTEXT_FAVORITE) {
+        bookkeeping_favorites_clear(&menu->bookkeeping);
+    } else {
+        bookkeeping_history_clear(&menu->bookkeeping);
+    }
+    item_removed(0);
+}
+
+static void confirm_remove_all(menu_t *menu, void *arg) {
+    int count = item_count();
+    if(tab_context == BOOKKEEPING_TAB_CONTEXT_FAVORITE) {
+        ui_components_confirm_show(remove_all, NULL, "Remove all %d favorites?\n\nThe games stay on the SD card, but this can't be undone.", count);
+    } else {
+        ui_components_confirm_show(remove_all, NULL, "Clear all %d games from History?\n\nThe games stay on the SD card, but this can't be undone.", count);
+    }
+}
+
+static component_context_menu_t history_context_menu = {
+    .list = {
+        { .text = "Remove from History", .action = remove_selected },
+        { .text = "Clear all History...", .action = confirm_remove_all },
+        COMPONENT_CONTEXT_MENU_LIST_END,
+    }
+};
+
+static component_context_menu_t favorite_context_menu = {
+    .list = {
+        { .text = "Remove from Favorites", .action = remove_selected },
+        { .text = "Remove all Favorites...", .action = confirm_remove_all },
+        COMPONENT_CONTEXT_MENU_LIST_END,
+    }
+};
+
+static component_context_menu_t *tab_context_menu(void) {
+    return (tab_context == BOOKKEEPING_TAB_CONTEXT_FAVORITE) ? &favorite_context_menu : &history_context_menu;
+}
+
 static void process(menu_t *menu) {
     int scroll_speed = menu->actions.go_fast ? FAST_SCROLL_ITEMS : 1;
+
+    if(ui_components_confirm_process(menu)) {
+        return;
+    }
+
+    if(ui_components_context_menu_process(menu, tab_context_menu())) {
+        return;
+    }
 
     if(moving_item) {
         if(menu->actions.go_down) {
@@ -191,11 +260,8 @@ static void process(menu_t *menu) {
             menu->next_mode = MENU_MODE_FAVORITE;
         }
         sound_play_effect(SFX_CURSOR);
-    }else if(tab_context == BOOKKEEPING_TAB_CONTEXT_FAVORITE && menu->actions.options && selected_item != -1) {
-        bookkeeping_favorite_remove(&menu->bookkeeping, selected_item);
-        item_reset_selected(menu);
-        // the index may be unchanged but now points at another game
-        ui_components_game_panel_free();
+    } else if(menu->actions.options && selected_item != -1) {
+        ui_components_context_menu_show(tab_context_menu());
         sound_play_effect(SFX_SETTING);
     } else if(tab_context == BOOKKEEPING_TAB_CONTEXT_FAVORITE && menu->actions.lz_context && selected_item != -1) {
         if(menu->settings.favorites_alphabetical) {
@@ -381,10 +447,17 @@ static void draw(menu_t *menu, surface_t *display) {
             ui_components_actions_bar_text_draw(
                 STL_DEFAULT,
                 ALIGN_RIGHT, VALIGN_TOP,
-                "R: Remove item\n"
+                "R: Remove\n"
                 "^%02X%s^00\n",
                 menu->settings.favorites_alphabetical ? STL_GRAY : STL_DEFAULT,
                 menu->settings.favorites_alphabetical ? "Sorted A-Z" : "L|Z: Reorder"
+            );
+        } else {
+            ui_components_actions_bar_text_draw(
+                STL_DEFAULT,
+                ALIGN_RIGHT, VALIGN_TOP,
+                "R: Remove\n"
+                "\n"
             );
         }
     }
@@ -396,12 +469,18 @@ static void draw(menu_t *menu, surface_t *display) {
         "\n"
     );    
 
+    ui_components_context_menu_draw(tab_context_menu());
+
+    ui_components_confirm_draw();
+
     rdpq_detach_show();   
 }
 
 void view_favorite_init (menu_t *menu) {
     tab_context = BOOKKEEPING_TAB_CONTEXT_FAVORITE;
     moving_item = false;
+    ui_components_context_menu_init(&favorite_context_menu);
+    ui_components_confirm_hide();
     item_list = menu->bookkeeping.favorite_items;
     item_max = FAVORITES_COUNT;
 
@@ -423,6 +502,8 @@ void view_favorite_display (menu_t *menu, surface_t *display) {
 void view_history_init (menu_t *menu) {
     tab_context = BOOKKEEPING_TAB_CONTEXT_HISTORY;
     moving_item = false;
+    ui_components_context_menu_init(&history_context_menu);
+    ui_components_confirm_hide();
     item_list = menu->bookkeeping.history_items;
     item_max = HISTORY_COUNT;
 

@@ -64,6 +64,7 @@ SRCS = \
 	menu/ui_components/background.c \
 	menu/ui_components/boxart.c \
 	menu/ui_components/common.c \
+	menu/ui_components/confirm.c \
 	menu/ui_components/context_menu.c \
 	menu/ui_components/file_info.c \
 	menu/ui_components/file_list.c \

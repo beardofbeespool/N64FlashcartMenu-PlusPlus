@@ -186,6 +186,35 @@ void ui_components_game_panel_draw(const char *name, const char *subtitle, const
 void ui_components_game_panel_free(void);
 
 /**
+ * @brief Ask the user to confirm an action that is hard to undo.
+ * 
+ * While the prompt is shown, A runs the action and B cancels it.
+ * 
+ * @param action Function run when the user answers yes.
+ * @param arg Argument passed to the action.
+ * @param fmt Question to show, printf style.
+ */
+void ui_components_confirm_show(void (*action)(menu_t *menu, void *arg), void *arg, const char *fmt, ...);
+
+/**
+ * @brief Close the confirmation prompt without running its action.
+ */
+void ui_components_confirm_hide(void);
+
+/**
+ * @brief Handle input for the confirmation prompt.
+ * 
+ * @param menu Pointer to the menu structure.
+ * @return true while the prompt is shown, the view should then ignore the input.
+ */
+bool ui_components_confirm_process(menu_t *menu);
+
+/**
+ * @brief Draw the confirmation prompt, if it is shown.
+ */
+void ui_components_confirm_draw(void);
+
+/**
  * @brief Draw a border component.
  * 
  * @param x0 Starting x-coordinate.

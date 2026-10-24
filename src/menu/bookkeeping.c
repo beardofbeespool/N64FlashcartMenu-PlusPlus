@@ -349,6 +349,44 @@ void bookkeeping_favorite_remove(bookkeeping_t *bookkeeping, int selection) {
 }
 
 /**
+ * @brief Remove an item from the history.
+ * 
+ * @param bookkeeping Pointer to the bookkeeping structure.
+ * @param selection Index of the item to remove.
+ */
+void bookkeeping_history_remove(bookkeeping_t *bookkeeping, int selection) {
+    if(bookkeeping->history_items[selection].bookkeeping_type != BOOKKEEPING_TYPE_EMPTY) {
+        bookkeeping_move_items_up(bookkeeping->history_items, selection, HISTORY_COUNT - 1);
+        bookkeeping_clear_item(&bookkeeping->history_items[HISTORY_COUNT - 1], false);
+        bookkeeping_save(bookkeeping);
+    }
+}
+
+/**
+ * @brief Remove every item from the history.
+ * 
+ * @param bookkeeping Pointer to the bookkeeping structure.
+ */
+void bookkeeping_history_clear(bookkeeping_t *bookkeeping) {
+    for(int i = 0; i < HISTORY_COUNT; i++) {
+        bookkeeping_clear_item(&bookkeeping->history_items[i], false);
+    }
+    bookkeeping_save(bookkeeping);
+}
+
+/**
+ * @brief Remove every item from the favorites.
+ * 
+ * @param bookkeeping Pointer to the bookkeeping structure.
+ */
+void bookkeeping_favorites_clear(bookkeeping_t *bookkeeping) {
+    for(int i = 0; i < FAVORITES_COUNT; i++) {
+        bookkeeping_clear_item(&bookkeeping->favorite_items[i], false);
+    }
+    bookkeeping_save(bookkeeping);
+}
+
+/**
  * @brief Find an item in the bookkeeping favorites.
  * 
  * @param bookkeeping Pointer to the bookkeeping structure.

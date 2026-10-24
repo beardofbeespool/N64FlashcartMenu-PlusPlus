@@ -538,7 +538,7 @@ static void show_properties (menu_t *menu, void *arg) {
     menu->next_mode = menu->browser.entry->type == ENTRY_TYPE_ARCHIVED ? MENU_MODE_EXTRACT_FILE : MENU_MODE_FILE_INFO;
 }
 
-static void delete_entry (menu_t *menu, void *arg) {
+static void delete_entry_confirmed (menu_t *menu, void *arg) {
     path_t *path = path_clone_push(menu->browser.directory, menu->browser.entry->name);
 
     if (remove(path_get(path))) {
@@ -560,6 +560,15 @@ static void delete_entry (menu_t *menu, void *arg) {
     }
 }
 
+static void delete_entry (menu_t *menu, void *arg) {
+    ui_components_confirm_show(
+        delete_entry_confirmed, NULL,
+        "Delete this %s from the SD card?\n\n%s\n\nThis can't be undone.",
+        (menu->browser.entry->type == ENTRY_TYPE_DIR) ? "folder" : "file",
+        menu->browser.entry->name
+    );
+}
+
 static void extract_entry (menu_t *menu, void *arg) {
     menu->load_pending.extract_file = true;
     menu->next_mode = MENU_MODE_EXTRACT_FILE;
@@ -571,10 +580,21 @@ static void set_default_directory (menu_t *menu, void *arg) {
     settings_save(&menu->settings);
 }
 
-static void set_saves_root_directory (menu_t *menu, void *arg) {
+static void set_saves_root_directory_confirmed (menu_t *menu, void *arg) {
     free(menu->settings.saves_root_directory);
     menu->settings.saves_root_directory = strdup(strip_fs_prefix(path_get(menu->browser.directory)));
     settings_save(&menu->settings);
+}
+
+static void set_saves_root_directory (menu_t *menu, void *arg) {
+    ui_components_confirm_show(
+        set_saves_root_directory_confirmed, NULL,
+        "Keep all saves in this folder?\n\n%s\n\n"
+        "Saves already next to your ROMs won't be "
+        "found until you move them here. To undo, "
+        "use Menu Settings > Saves Root: Off.",
+        strip_fs_prefix(path_get(menu->browser.directory))
+    );
 }
 
 static void set_menu_next_mode (menu_t *menu, void *arg) {
@@ -618,6 +638,10 @@ static component_context_menu_t archive_context_menu = {
 };
 
 static void process (menu_t *menu) {
+    if (ui_components_confirm_process(menu)) {
+        return;
+    }
+
     if (ui_components_context_menu_process(menu, menu->browser.archive ? &archive_context_menu : &entry_context_menu)) {
         return;
     }
@@ -916,6 +940,8 @@ static void draw (menu_t *menu, surface_t *d) {
 
     ui_components_context_menu_draw(&settings_context_menu);
 
+    ui_components_confirm_draw();
+
     rdpq_detach_show();
 }
 
@@ -968,6 +994,8 @@ void view_browser_init (menu_t *menu) {
 
     // Favorites may have changed in other views
     refresh_favorites(menu);
+
+    ui_components_confirm_hide();
 }
 
 void view_browser_display (menu_t *menu, surface_t *display) {

@@ -29,6 +29,8 @@ This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodniko
 * **Quick launch:** press `START` on a game in the file list, History or Favorites to launch it without opening the game info screen.
 * **One-button favorites:** press `L` or `Z` on a game in the file list, or D-pad/C `▲` on the game info screen, to add or remove it. Favorited games are marked with a yellow `*` in the file list.
 * **Optional saves root folder:** keep all saves in one folder that mirrors your ROM folders, instead of next to each ROM. Off by default.
+* **Clean up History and Favorites:** `R` in either tab removes the selected game, or clears the whole list.
+* **Confirmations:** clearing History or Favorites, deleting a file or folder, and setting the saves root all ask *A: Yes / B: No* first.
 
 ### Controls added or changed
 | Screen | Button | Action |
@@ -37,11 +39,15 @@ This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodniko
 | File list | `START` on a folder or other file | Settings menu (unchanged) |
 | File list | `L` / `Z` on an N64 ROM | Add to / remove from favorites |
 | File list | `R` → *Menu settings and info* | Settings menu, for folders that contain only games |
-| File list | `R` → *Set current directory as saves root* | Use the current folder as the saves root |
+| File list | `R` → *Set current directory as saves root* | Use the current folder as the saves root (asks first) |
+| File list | `R` → *Delete selected entry* | Delete the file or empty folder from the SD card (now asks first) |
 | File list | `A` on a ROM | Game info screen (unchanged) |
 | History / Favorites | `START` on an N64 ROM | Launch the game immediately |
 | Favorites | `L` / `Z` | Pick up the selected game (amber highlight); Up/Down moves it, `L` / `Z`, `A` or `B` drops it |
-| Favorites | `R` | Remove the selected game (unchanged) |
+| History | `R` → *Remove from History* | Remove the selected game from History |
+| History | `R` → *Clear all History...* | Empty History (asks first) |
+| Favorites | `R` → *Remove from Favorites* | Remove the selected game (was instant on `R`, now `R` then `A`) |
+| Favorites | `R` → *Remove all Favorites...* | Empty Favorites (asks first) |
 | Game info screen | D-pad `▲` or C-`▲` | Add to / remove from favorites |
 | Menu Settings | *Saves Root: Off* | Turn the saves root off again |
 | Menu Settings | *Color Theme* | Pick a color theme, applied immediately |
@@ -57,7 +63,7 @@ This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodniko
 * `src/menu/bookkeeping.h`: raised `FAVORITES_COUNT` and `HISTORY_COUNT` from 8 to 100.
 * `src/menu/ini_parser.c`: raised `INI_MAX_PAIRS` from 64 to 512. Each favorite uses 3 keys, so the old cap stopped saving after about 21 favorites.
 * `src/menu/bookkeeping.c`: empty history and favorite slots are no longer written to the history file, so its size follows the number of entries actually used. Existing files still load.
-* `src/menu/views/history_favorites.c`: the History and Favorites tabs are a split view. The left column is a scrolling one-line-per-game list (file names without extensions) with its scrollbar as the divider; the right panel shows the selected game's title, position in the list, release date, players, Expansion Pak and Rumble Pak info, and box art. The info and box art load after the selection rests for a third of a second, so scrolling stays fast. `START` launches the selected game, `L`/`Z` reorders favorites, and the lists wrap around.
+* `src/menu/views/history_favorites.c`: the History and Favorites tabs are a split view. The left column is a scrolling one-line-per-game list (file names without extensions) with its scrollbar as the divider; the right panel shows the selected game's title, position in the list, release date, players, Expansion Pak and Rumble Pak info, and box art. The info and box art load once the selection rests (instantly for games already in memory), so scrolling stays fast. `START` launches the selected game, `L`/`Z` reorders favorites, and the lists wrap around.
 * `src/menu/bookkeeping.c`: new `bookkeeping_favorite_swap()` for reordering. The new order is saved once, when the game is dropped.
 * `src/menu/settings.c`: `wrap_file_list_scrolling` now defaults to on. The settings schema revision is now 2, and older configs have wrap-around switched on once when first loaded.
 * `src/menu/ui_components/constants.h`, `src/menu/fonts.c`: new default color palette, and a lighter gray text color for readability on navy.
@@ -76,6 +82,10 @@ This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodniko
 * `src/menu/views/load_rom.c`: with large text the game info screen skips the description so the details fit above the actions bar.
 * `src/menu/actions.c`, `src/menu/menu_state.h`: new `favorite` action, triggered once per press of D-pad up or C-up (the analog stick is ignored so a nudge can't toggle it).
 * `src/menu/bookkeeping.c`: new `bookkeeping_favorite_find()` to check whether a game is already a favorite.
+* `src/menu/bookkeeping.c`: new `bookkeeping_history_remove()`, `bookkeeping_history_clear()` and `bookkeeping_favorites_clear()`.
+* `src/menu/ui_components/confirm.c` (new): a yes/no prompt (`ui_components_confirm_show()`), used before actions that are hard to undo. While it is up, `A` runs the action, `B` cancels and every other button is ignored.
+* `src/menu/views/history_favorites.c`: `R` opens a menu in both tabs to remove the selected game or clear the list. After a removal the selection stays at the same place in the list.
+* `src/menu/views/browser.c`: *Delete selected entry* and *Set current directory as saves root* ask for confirmation first.
 * `src/menu/views/load_rom.c`: the game info screen shows the favorite status under the title and toggles it with `▲`. A quick launch skips this screen, but still stops at the Expansion Pak warning when a game needs one.
 * `src/menu/views/browser.c`, `src/menu/ui_components/file_list.c`: `START` quick launch, `L`/`Z` favorite toggle, the `*` marker, the saves root option, and a *Menu settings and info* entry in the `R` menu.
 * `src/menu/views/load_emulator.c`: emulator ROMs can be quick launched from the file list.
@@ -122,7 +132,8 @@ python3 scripts/match_saves.py --saves ~/old-card-backup --roms /run/media/$USER
 * The console's reset button goes through startup again, so it relaunches the last game. Hold `START` while resetting to reach the menu.
 * If the autoload ROM is moved, renamed or deleted, hold `START` at power-on to get back to the menu.
 * The autoload target is stored in the `[autoload]` section of `menu/config.ini` on the SD card.
-* In the Favorites tab, Up/Down moves one entry and the fast-scroll button jumps 8. `R` removes the selected favorite.
+* In the Favorites tab, Up/Down moves one entry and the fast-scroll button jumps 8. `R` then `A` removes the selected favorite.
+* Removing games from History or Favorites never touches the ROMs or saves on the SD card, and doesn't change the autoload game.
 * When all 100 favorite slots are full, adding another shows "Favorites are full" and changes nothing. History drops its oldest entry when full.
 * In A-Z order, games are sorted by file name, and `L`/`Z` in the Favorites tab does nothing. Switching from A-Z back to Manual keeps the sorted order as the starting point.
 * Box art in the panels needs the metadata pack in `menu/metadata/` (see `scripts/install_boxart.py`). Without it the panel shows the title and details only.

@@ -95,6 +95,28 @@ void bookkeeping_favorites_sort(bookkeeping_t *bookkeeping);
 void bookkeeping_favorite_remove(bookkeeping_t *bookkeeping, int selection);
 
 /**
+ * @brief Remove a game from the history.
+ * 
+ * @param bookkeeping The bookkeeping structure.
+ * @param selection The index of the history item to remove.
+ */
+void bookkeeping_history_remove(bookkeeping_t *bookkeeping, int selection);
+
+/**
+ * @brief Remove every game from the history.
+ * 
+ * @param bookkeeping The bookkeeping structure.
+ */
+void bookkeeping_history_clear(bookkeeping_t *bookkeeping);
+
+/**
+ * @brief Remove every game from the favorites.
+ * 
+ * @param bookkeeping The bookkeeping structure.
+ */
+void bookkeeping_favorites_clear(bookkeeping_t *bookkeeping);
+
+/**
  * @brief Find a ROM in the favorites.
  *
  * @param bookkeeping The bookkeeping structure.
