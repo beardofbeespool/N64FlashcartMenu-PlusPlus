@@ -7,6 +7,8 @@
 #ifndef FONTS_H__
 #define FONTS_H__
 
+#include <stdbool.h>
+
 /**
  * @brief Font type enumeration.
  * 
@@ -39,8 +41,16 @@ typedef enum {
  * This function initializes the fonts used in the menu system. It can load
  * custom fonts from the specified path.
  * 
- * @param custom_font_path Path to the custom font file.
+ * @param custom_font_path Path to the custom font file, used for normal size text only.
+ * @param large_text Use the large font, and the layout that fits it.
  */
-void fonts_init(char *custom_font_path);
+void fonts_init(char *custom_font_path, bool large_text);
+
+/**
+ * @brief Switch between normal and large text, updating the layout to match.
+ * 
+ * @param large_text Use the large font.
+ */
+void fonts_set_large_text(bool large_text);
 
 #endif /* FONTS_H__ */

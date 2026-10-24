@@ -31,6 +31,9 @@ typedef struct {
     /** @brief Keep favorites sorted by name instead of in the order they were added and arranged */
     bool favorites_alphabetical;
 
+    /** @brief Use a bigger font that stays readable on CRTs over composite video */
+    bool large_text;
+
     /** @brief Show files/directories that are filtered in the browser */
     bool show_protected_entries;
 

@@ -124,7 +124,7 @@ static void menu_init (boot_params_t *boot_params) {
     display_set_fps_limit(FPS_LIMIT);
 
     path_push(path, MENU_CUSTOM_FONT_FILE);
-    fonts_init(path_get(path));
+    fonts_init(path_get(path), menu->settings.large_text);
     path_pop(path);
 
     // path_push(path, MENU_CUSTOM_BGM_FILE);

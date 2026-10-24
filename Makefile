@@ -117,6 +117,7 @@ DEPS = $(OBJS:.o=.d)
 
 FILESYSTEM = \
 	$(addprefix $(FILESYSTEM_DIR)/, $(notdir $(FONTS:%.ttf=%.font64))) \
+	$(FILESYSTEM_DIR)/Firple-Bold-Large.font64 \
 	$(addprefix $(FILESYSTEM_DIR)/, $(notdir $(SOUNDS_WAV:%.wav=%.wav64))) \
 	$(addprefix $(FILESYSTEM_DIR)/, $(notdir $(SOUNDS_XM:%.xm=%.xm64))) \
 	$(addprefix $(FILESYSTEM_DIR)/, $(notdir $(IMAGES:%.png=%.sprite)))
@@ -125,6 +126,17 @@ $(MINIZ_OBJS): N64_CFLAGS+=-Wno-unused-function -fcompare-debug-second
 $(SPNG_OBJS): N64_CFLAGS+=-DSPNG_USE_MINIZ -fcompare-debug-second
 $(FILESYSTEM_DIR)/Firple-Bold.font64: MKFONT_FLAGS+=--compress 1 --outline 1 --size 15 --charset $(ASSETS_DIR)/fonts/charset.txt --ellipsis 2026,1
 $(FILESYSTEM_DIR)/%.wav64: AUDIOCONV_FLAGS=--wav-compress 1
+
+# Large text: the same font at a bigger size, for CRTs on composite video.
+# mkfont names its output after the input file, so build it from a renamed copy.
+$(BUILD_DIR)/Firple-Bold-Large.ttf: $(ASSETS_DIR)/fonts/Firple-Bold.ttf
+	@mkdir -p $(BUILD_DIR)
+	@cp $< $@
+
+$(FILESYSTEM_DIR)/Firple-Bold-Large.font64: $(BUILD_DIR)/Firple-Bold-Large.ttf
+	@echo "    [FONT] $@"
+	@$(N64_MKFONT) --compress 1 --outline 1 --size 20 --charset $(ASSETS_DIR)/fonts/charset.txt --ellipsis 2026,1 -o $(FILESYSTEM_DIR) "$<"
+
 
 $(@info $(shell mkdir -p ./$(FILESYSTEM_DIR) &> /dev/null))
 

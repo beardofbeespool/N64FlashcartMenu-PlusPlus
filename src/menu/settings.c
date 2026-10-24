@@ -16,6 +16,7 @@ static settings_t init = {
     .theme = 0,
     .screen_margin = 5,
     .favorites_alphabetical = false,
+    .large_text = false,
     .show_protected_entries = false,
     .default_directory = "/",
     .use_saves_folder = true,
@@ -63,6 +64,7 @@ void settings_load (settings_t *settings) {
     settings->theme = ini_get_int(ini, "menu", "theme", init.theme);
     settings->screen_margin = ini_get_int(ini, "menu", "screen_margin", init.screen_margin);
     settings->favorites_alphabetical = ini_get_bool(ini, "menu", "favorites_alphabetical", init.favorites_alphabetical);
+    settings->large_text = ini_get_bool(ini, "menu", "large_text", init.large_text);
     settings->show_protected_entries = ini_get_bool(ini, "menu", "show_protected_entries", init.show_protected_entries);
     free(settings->default_directory);
     settings->default_directory = strdup(ini_get_string(ini, "menu", "default_directory", init.default_directory));
@@ -112,6 +114,7 @@ void settings_save (settings_t *settings) {
     ini_set_int(ini, "menu", "theme", settings->theme);
     ini_set_int(ini, "menu", "screen_margin", settings->screen_margin);
     ini_set_bool(ini, "menu", "favorites_alphabetical", settings->favorites_alphabetical);
+    ini_set_bool(ini, "menu", "large_text", settings->large_text);
     ini_set_bool(ini, "menu", "show_protected_entries", settings->show_protected_entries);
     ini_set_string(ini, "menu", "default_directory", settings->default_directory);
     ini_set_bool(ini, "menu", "use_saves_folder", settings->use_saves_folder);

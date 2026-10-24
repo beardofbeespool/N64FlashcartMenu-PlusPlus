@@ -258,7 +258,7 @@ void cheat_code_list_draw (cheat_file_code_t *list, int entries, int selected) {
         rdpq_paragraph_t *cheat_list_layout;
         rdpq_paragraph_t *layout;
 
-        size_t cheat_string_lengths[LIST_ENTRIES];
+        size_t cheat_string_lengths[LIST_ENTRIES_MAX];
         size_t total_length = 1;
 
         for (int i = 0; i < LIST_ENTRIES; i++) {

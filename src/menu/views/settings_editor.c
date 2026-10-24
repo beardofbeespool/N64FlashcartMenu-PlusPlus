@@ -1,9 +1,13 @@
 #include <stdbool.h>
 #include "../sound.h"
 #include "../settings.h"
+#include "../ui_components/constants.h"
+#include "utils/utils.h"
 #include "views.h"
 
 static bool show_message_reset_settings = false;
+static int scroll_line = 0;
+static int scroll_max = 0;
 
 static const char *format_switch (bool state) {
     switch (state) {
@@ -115,6 +119,12 @@ static void set_favorites_alphabetical (menu_t *menu, void *arg) {
         bookkeeping_favorites_sort(&menu->bookkeeping);
         bookkeeping_save(&menu->bookkeeping);
     }
+    settings_save(&menu->settings);
+}
+
+static void set_large_text (menu_t *menu, void *arg) {
+    menu->settings.large_text = (bool)(uintptr_t)(arg);
+    fonts_set_large_text(menu->settings.large_text);
     settings_save(&menu->settings);
 }
 
@@ -389,7 +399,20 @@ static component_context_menu_t set_favorites_alphabetical_context_menu = {
     COMPONENT_CONTEXT_MENU_LIST_END,
 }};
 
+static int get_large_text_current_selection (menu_t *menu) {
+    return menu->settings.large_text ? 1 : 0;
+}
+
+static component_context_menu_t set_large_text_context_menu = {
+    .get_default_selection = get_large_text_current_selection,
+    .list = {
+        {.text = "Normal", .action = set_large_text, .arg = (void *)(uintptr_t)(false) },
+        {.text = "Large (easier on CRTs)", .action = set_large_text, .arg = (void *)(uintptr_t)(true) },
+    COMPONENT_CONTEXT_MENU_LIST_END,
+}};
+
 static component_context_menu_t options_context_menu = { .list = {
+    { .text = "Text Size", .submenu = &set_large_text_context_menu },
     { .text = "Color Theme", .submenu = &set_theme_context_menu },
     { .text = "Screen Margin", .submenu = &set_screen_margin_context_menu },
     { .text = "Favorites Order", .submenu = &set_favorites_alphabetical_context_menu },
@@ -422,6 +445,17 @@ static component_context_menu_t options_context_menu = { .list = {
 
 static void process (menu_t *menu) {
     if (ui_components_context_menu_process(menu, &options_context_menu)) {
+        return;
+    }
+
+    // the settings don't fit on screen (with large text even less so), so they scroll
+    if (menu->actions.go_down && (scroll_line < scroll_max)) {
+        scroll_line++;
+        sound_play_effect(SFX_CURSOR);
+        return;
+    } else if (menu->actions.go_up && (scroll_line > 0)) {
+        scroll_line--;
+        sound_play_effect(SFX_CURSOR);
         return;
     }
 
@@ -460,13 +494,13 @@ static void draw (menu_t *menu, surface_t *d) {
         "\n"
     );
 
-    ui_components_main_text_draw(
-        STL_DEFAULT,
-        ALIGN_LEFT, VALIGN_TOP,
-        "\n\n"
+    char settings_text[2048];
+    snprintf(
+        settings_text, sizeof(settings_text),
         "  Default Directory : %s\n"
         "  Saves Root Folder : %s\n\n"
         "To change the following menu settings, press 'A':\n"
+        "     Text Size         : %s\n"
         "     Color Theme       : %s\n"
         "     Screen Margin     : %d%%\n"
         "     Favorites Order   : %s\n"
@@ -495,6 +529,7 @@ static void draw (menu_t *menu, surface_t *d) {
         ,
         menu->settings.default_directory,
         (menu->settings.saves_root_directory[0] != '\0') ? menu->settings.saves_root_directory : "Off (next to ROMs)",
+        menu->settings.large_text ? "Large" : "Normal",
         ui_theme_name(menu->settings.theme),
         menu->settings.screen_margin,
         menu->settings.favorites_alphabetical ? "A-Z" : "Manual",
@@ -520,6 +555,35 @@ static void draw (menu_t *menu, surface_t *d) {
         format_switch(menu->settings.rumble_enabled)
 #endif
     );
+
+    // show the lines that fit below the two title lines, starting at the scroll position
+    int total_lines = 1;
+    for (char *c = settings_text; *c; c++) {
+        if (*c == '\n') {
+            total_lines++;
+        }
+    }
+    int visible_lines = ((LAYOUT_ACTIONS_SEPARATOR_Y - VISIBLE_AREA_Y0 - (TEXT_MARGIN_VERTICAL * 2)) / ui_layout.line_height) - 2;
+    scroll_max = MAX(0, total_lines - visible_lines);
+    scroll_line = MIN(scroll_line, scroll_max);
+
+    char *visible_text = settings_text;
+    for (int line = 0; (line < scroll_line) && *visible_text; visible_text++) {
+        if (*visible_text == '\n') {
+            line++;
+        }
+    }
+
+    ui_components_main_text_draw(
+        STL_DEFAULT,
+        ALIGN_LEFT, VALIGN_TOP,
+        "\n\n%s",
+        visible_text
+    );
+
+    if (scroll_max > 0) {
+        ui_components_list_scrollbar_draw(scroll_line, scroll_max + 1, 1);
+    }
 
     ui_components_actions_bar_text_draw(
         STL_DEFAULT,
@@ -550,6 +614,7 @@ static void draw (menu_t *menu, surface_t *d) {
 
 void view_settings_init (menu_t *menu) {
     ui_components_context_menu_init(&options_context_menu);
+    scroll_line = 0;
 
 }
 

@@ -9,6 +9,7 @@
 #ifndef COMPONENTS_CONSTANTS_H__
 #define COMPONENTS_CONSTANTS_H__
 
+#include <stdbool.h>
 #include <graphics.h>
 
 /** @brief A menu color theme, selected in the menu settings. */
@@ -32,10 +33,28 @@ typedef struct {
 extern const ui_theme_t *ui_theme;
 
 /**
- * @def TAB_HEIGHT
- * @brief Height of the tabs in the main menu (pixels).
+ * @brief Layout values that depend on the active font, see fonts_set_large_text().
+ *
+ * With the normal font they match the original fixed layout (20 px tabs, separator
+ * at y = 400, 19 list rows); large text makes the tabs taller, the actions bar
+ * deeper and the lists shorter.
  */
-#define TAB_HEIGHT                      (20)
+typedef struct {
+    bool large_text;                 /**< The large font is active */
+    int line_height;                 /**< Height of one line of text in pixels */
+    int tab_height;                  /**< Height of the tabs in the main menu */
+    int actions_separator_y;         /**< Y coordinate of the line above the actions bar */
+    int list_entries;                /**< Number of list rows that fit on screen */
+} ui_layout_t;
+
+/** @brief The active layout, see fonts_set_large_text(). */
+extern ui_layout_t ui_layout;
+
+/**
+ * @def TAB_HEIGHT
+ * @brief Height of the tabs in the main menu (pixels), from the active layout.
+ */
+#define TAB_HEIGHT                      (ui_layout.tab_height)
 
 /**
  * @def BORDER_THICKNESS
@@ -110,9 +129,9 @@ extern const ui_theme_t *ui_theme;
 
 /**
  * @def LAYOUT_ACTIONS_SEPARATOR_Y
- * @brief Y coordinate for the layout actions separator.
+ * @brief Y coordinate for the layout actions separator, from the active layout.
  */
-#define LAYOUT_ACTIONS_SEPARATOR_Y      (400)
+#define LAYOUT_ACTIONS_SEPARATOR_Y      (ui_layout.actions_separator_y)
 
 /**
  * @def SEEKBAR_HEIGHT
@@ -288,9 +307,15 @@ extern const ui_theme_t *ui_theme;
 
 /**
  * @def LIST_ENTRIES
- * @brief Maximum number of file list entries.
+ * @brief Number of list rows that fit on screen, from the active layout.
  */
-#define LIST_ENTRIES                    (19)
+#define LIST_ENTRIES                    (ui_layout.list_entries)
+
+/**
+ * @def LIST_ENTRIES_MAX
+ * @brief Most list rows that can ever fit on screen (normal text), for sizing arrays.
+ */
+#define LIST_ENTRIES_MAX                (19)
 /**
  * @def FILE_LIST_MAX_WIDTH
  * @brief Maximum width for a file list entry (pixels).

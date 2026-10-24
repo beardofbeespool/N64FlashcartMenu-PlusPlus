@@ -340,6 +340,12 @@ void ui_components_main_text_draw (menu_font_type_t style, rdpq_align_t align, r
  * @param ... The format arguments.
  */
 void ui_components_actions_bar_text_draw (menu_font_type_t style, rdpq_align_t align, rdpq_valign_t valign, char *fmt, ...) {
+    // with large text there is only room for the left and right columns; the centre
+    // holds hints such as "◀ Tabs ▶" and the clock, which would overlap them
+    if (ui_layout.large_text && (align == ALIGN_CENTER)) {
+        return;
+    }
+
     char buffer[256];
     size_t nbytes = sizeof(buffer);
 
@@ -431,7 +437,8 @@ void ui_components_tabs_draw(const char **text, int count, int selected, float w
     // write the text on the tabs
     rdpq_textparms_t tab_textparms = {
         .width = width,
-        .height = 24,
+        // 24 with the normal 20 px tabs, taller with large text so the label still fits
+        .height = TAB_HEIGHT + 4,
         .align = ALIGN_CENTER,
         .wrap = WRAP_NONE
     };

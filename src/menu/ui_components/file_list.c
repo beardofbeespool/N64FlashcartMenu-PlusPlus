@@ -141,7 +141,7 @@ static void file_list_draw(entry_t *list, int entries, int selected, bool split)
             visible_entries = LIST_ENTRIES;
         }
 
-        size_t name_lengths[LIST_ENTRIES];
+        size_t name_lengths[LIST_ENTRIES_MAX];
         size_t total_length = 1;
 
         for (int i = 0; i < visible_entries; i++) {

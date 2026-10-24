@@ -3,6 +3,7 @@
 #include "../datel_codes.h"
 #include "../rom_info.h"
 #include "../sound.h"
+#include "../ui_components/constants.h"
 #include "boot/boot.h"
 #include "utils/fs.h"
 #include "views.h"
@@ -654,18 +655,21 @@ static void draw (menu_t *menu, surface_t *d) {
             );
         }
 
-        ui_components_main_text_draw(
-            STL_DEFAULT,
-            ALIGN_LEFT, VALIGN_TOP,
-            "\n\n\n\t%.120s\n",
-            format_rom_description(menu)
-            
-        );
+        // large text has no room for the description, the details move up instead
+        if (!ui_layout.large_text) {
+            ui_components_main_text_draw(
+                STL_DEFAULT,
+                ALIGN_LEFT, VALIGN_TOP,
+                "\n\n\n\t%.120s\n",
+                format_rom_description(menu)
+                
+            );
+        }
 
         ui_components_main_text_draw(
             STL_DEFAULT,
             ALIGN_LEFT, VALIGN_TOP,
-            "\n\n\n\n\n\n\n\n\n\n\n"
+            "%s"
             "Save type:\t\t%s\n"
             "TV region:\t\t%s\n"
             "\n"
@@ -677,7 +681,7 @@ static void draw (menu_t *menu, surface_t *d) {
             "Patches:\t\t\t%s\n"
             "Clear RDRAM:\t\t%s\n"
             ,
-            
+            ui_layout.large_text ? "\n\n\n\n" : "\n\n\n\n\n\n\n\n\n\n\n",
             format_rom_save_type(rom_info_get_save_type(&menu->load.rom_info), menu->load.rom_info.features.controller_pak),
             format_rom_tv_type(rom_info_get_tv_type(&menu->load.rom_info)),
             format_rom_expansion_pak_info(menu->load.rom_info.features.expansion_pak),

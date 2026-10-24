@@ -22,6 +22,7 @@ This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodniko
 * **Favorites order:** new favorites go to the bottom of the list, and you can arrange them by hand (pick a game up with `L`/`Z`, move it with Up/Down, drop it with `L`/`Z`), or keep them sorted A-Z (*Menu Settings → Favorites Order*).
 * **Wrap-around lists:** Up at the top of the file list, Favorites or History jumps to the bottom, and Down at the bottom jumps to the top.
 * **Color themes:** Navy (default), Red, Purple, Green, Yellow, Teal, Pink or Classic Gray, chosen in *Menu Settings → Color Theme*. The selected row always gets a contrasting outline.
+* **Large text:** a bigger font for CRTs on composite video, where the normal text smears (*Menu Settings → Text Size*). Lists show 13 rows instead of 19 and the screens adjust to fit.
 * **Screen margin:** shrinks the whole picture inward so text stays clear of the screen edges and corners (*Menu Settings → Screen Margin*: Off, 5% (default), 10% or 15%).
 * **Helper scripts** for the PC: install the box art pack onto the card, and rename old saves to match your ROMs. See [Scripts](#scripts).
 * **Quick launch:** press `START` on a game in the file list, History or Favorites to launch it without opening the game info screen.
@@ -43,6 +44,8 @@ This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodniko
 | Game info screen | D-pad `▲` or C-`▲` | Add to / remove from favorites |
 | Menu Settings | *Saves Root: Off* | Turn the saves root off again |
 | Menu Settings | *Color Theme* | Pick a color theme, applied immediately |
+| Menu Settings | *Text Size* | *Normal* or *Large*, applied immediately |
+| Menu Settings | Up / Down | Scroll the settings list |
 | Menu Settings | *Favorites Order* | *Manual* (new favorites at the bottom, `L`/`Z` reorders) or *A-Z* (always sorted by file name) |
 | Menu Settings | *Screen Margin* | Move everything away from the screen edges, applied immediately |
 
@@ -65,6 +68,10 @@ This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodniko
 * `src/menu/bookkeeping.c`: favorites are appended at the end instead of inserted at the top, a game that is already a favorite keeps its place, and adding to a full list is refused with a message instead of dropping a favorite. New `bookkeeping_favorites_sort()` for the A-Z order (`favorites_alphabetical` in `menu/config.ini`).
 * `src/menu/ui_components/file_list.c`, `src/menu/views/browser.c`: the file list draws as a narrow column without file sizes, with the panel showing the entry's type, size, position and favorite status, and full game details for N64 ROMs.
 * `scripts/install_boxart.py`, `scripts/match_saves.py` (new): PC helper scripts, see below.
+* `src/menu/fonts.c`, `Makefile`: a second built-in font, `Firple-Bold-Large.font64` (the same font at size 20 instead of 15), switchable at runtime. Its measured line height sets the tab height, the actions bar position and the number of list rows (`ui_layout` in `constants.h`; `TAB_HEIGHT`, `LAYOUT_ACTIONS_SEPARATOR_Y` and `LIST_ENTRIES` now read from it). Normal text keeps the original 20 px tabs, separator at y = 400 and 19 rows.
+* `src/menu/ui_components/common.c`: with large text the centre column of the actions bar (tab hints, clock) is left out so the left and right columns don't overlap.
+* `src/menu/views/settings_editor.c`: the settings list scrolls with Up/Down and shows a scrollbar when it doesn't fit; it was already cut off at the bottom with normal text.
+* `src/menu/views/load_rom.c`: with large text the game info screen skips the description so the details fit above the actions bar.
 * `src/menu/actions.c`, `src/menu/menu_state.h`: new `favorite` action, triggered once per press of D-pad up or C-up (the analog stick is ignored so a nudge can't toggle it).
 * `src/menu/bookkeeping.c`: new `bookkeeping_favorite_find()` to check whether a game is already a favorite.
 * `src/menu/views/load_rom.c`: the game info screen shows the favorite status under the title and toggles it with `▲`. A quick launch skips this screen, but still stops at the Expansion Pak warning when a game needs one.
@@ -119,6 +126,8 @@ python3 scripts/match_saves.py --saves ~/old-card-backup --roms /run/media/$USER
 * Box art in the panels needs the metadata pack in `menu/metadata/` (see `scripts/install_boxart.py`). Without it the panel shows the title and details only.
 * Inside a ZIP archive, and for folders, the panel shows the entry type and size only.
 * The screen margin uses the VI's resampling, which softens the picture very slightly. Set it to Off on displays where the edges are already clear.
+* Large text is laid out for the main screens (file list, Favorites, History, game info, settings, menus). Less common screens such as the system and flashcart info pages may cut off their last lines.
+* On a CRT over composite video, large text with the screen margin Off and a dark theme (Navy or Classic Gray) is the most readable combination. An S-Video cable (NTSC consoles) helps far more than any setting.
 * Favorites and history share one file, which is rewritten on every game launch. With 100 favorites this is roughly 15–20 KB.
 * Only N64 ROMs can be favorited. Emulator games (NES, SNES, Game Boy, …) can be quick launched but don't appear in History or Favorites.
 * 64DD disks in History or Favorites open their load screen with `START`, the same as `A`.
