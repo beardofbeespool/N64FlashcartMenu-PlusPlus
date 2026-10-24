@@ -18,10 +18,12 @@ This menu is not affiliated with any particular flashcart and does not necessari
 This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodnikowy/N64FlashcartMenu) V0.3.5, not an official release. It adds these features for the SummerCart64:
 * **Autoload last game:** launching a game makes it the autoload target, so the console boots straight back into your last game. Hold `START` while powering on to get the menu instead.
 * **100 favorites and 100 history entries:** instead of 8 each.
-* **Split-view Favorites and History:** a one-line-per-game list on the left, and the selected game's title, details and box art on the right.
+* **Split-view file list, Favorites and History:** a one-line-per-entry list on the left, and the selected entry's title, type, size or game details, and box art on the right.
 * **Reorder favorites:** pick a game up with `L`/`Z`, move it with Up/Down, drop it with `L`/`Z`.
 * **Wrap-around lists:** Up at the top of the file list, Favorites or History jumps to the bottom, and Down at the bottom jumps to the top.
-* **Higher-contrast default theme:** navy background, blue tabs, and a blue highlight with a gold outline on the selected row.
+* **Color themes:** Navy (default), Red, Purple, Green, Yellow, Teal, Pink or Classic Gray, chosen in *Menu Settings → Color Theme*. The selected row always gets a contrasting outline.
+* **Screen margin:** shrinks the whole picture inward so text stays clear of the screen edges and corners (*Menu Settings → Screen Margin*: Off, 5% (default), 10% or 15%).
+* **Helper scripts** for the PC: install the box art pack onto the card, and rename old saves to match your ROMs. See [Scripts](#scripts).
 * **Quick launch:** press `START` on a game in the file list, History or Favorites to launch it without opening the game info screen.
 * **One-button favorites:** press `L` or `Z` on a game in the file list, or D-pad/C `▲` on the game info screen, to add or remove it. Favorited games are marked with a yellow `*` in the file list.
 * **Optional saves root folder:** keep all saves in one folder that mirrors your ROM folders, instead of next to each ROM. Off by default.
@@ -40,6 +42,8 @@ This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodniko
 | Favorites | `R` | Remove the selected game (unchanged) |
 | Game info screen | D-pad `▲` or C-`▲` | Add to / remove from favorites |
 | Menu Settings | *Saves Root: Off* | Turn the saves root off again |
+| Menu Settings | *Color Theme* | Pick a color theme, applied immediately |
+| Menu Settings | *Screen Margin* | Move everything away from the screen edges, applied immediately |
 
 ### What changed
 * `src/menu/views/load_rom.c`: after a successful ROM load, the ROM's folder and filename are saved as the autoload target. This is skipped when the boot was itself an autoload, so the SD card is not rewritten on every power-on.
@@ -52,7 +56,11 @@ This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodniko
 * `src/menu/bookkeeping.c`: new `bookkeeping_favorite_swap()` for reordering. The new order is saved once, when the game is dropped.
 * `src/menu/settings.c`: `wrap_file_list_scrolling` now defaults to on. The settings schema revision is now 2, and older configs have wrap-around switched on once when first loaded.
 * `src/menu/ui_components/constants.h`, `src/menu/fonts.c`: new default color palette, and a lighter gray text color for readability on navy.
-* `src/menu/ui_components/common.c`: new `ui_components_highlight_draw()`, a filled row with a 2 px gold outline, used by the file list, Favorites/History, context menus and the cheat editor.
+* `src/menu/ui_components/common.c`: new `ui_components_highlight_draw()`, a filled row with an outline, used by the file list, Favorites/History, context menus and the cheat editor. New `ui_components_screen_margin_apply()`, which uses VI borders to shrink the picture (with resampling, so letters stay even).
+* `src/menu/ui_components/theme.c` (new), `constants.h`: the UI colors come from the active theme. `menu.c` applies the saved theme and screen margin at startup; `settings_editor.c` adds both options and re-applies the margin after a PAL60 change (which resets the video output).
+* `src/menu/ui_components/game_panel.c` (new): the info panel beside narrow lists, shared by the file list and Favorites/History. ROM info and box art load once the selection rests for 10 frames.
+* `src/menu/ui_components/file_list.c`, `src/menu/views/browser.c`: the file list draws as a narrow column without file sizes, with the panel showing the entry's type, size, position and favorite status, and full game details for N64 ROMs.
+* `scripts/install_boxart.py`, `scripts/match_saves.py` (new): PC helper scripts, see below.
 * `src/menu/actions.c`, `src/menu/menu_state.h`: new `favorite` action, triggered once per press of D-pad up or C-up (the analog stick is ignored so a nudge can't toggle it).
 * `src/menu/bookkeeping.c`: new `bookkeeping_favorite_find()` to check whether a game is already a favorite.
 * `src/menu/views/load_rom.c`: the game info screen shows the favorite status under the title and toggles it with `▲`. A quick launch skips this screen, but still stops at the Expansion Pak warning when a game needs one.
@@ -72,13 +80,35 @@ make all FLAGS="-DFEATURE_AUTOLOAD_ROM_ENABLED"
 
 Copy `output/sc64menu.n64` to the root of your SD card.
 
+### Scripts
+Both scripts need only Python 3 (no extra packages) and run on Linux, Windows and macOS. Replace `/run/media/$USER/SC64` with wherever your SD card is mounted.
+
+**Box art:** `scripts/install_boxart.py` downloads the newest [metadata pack](https://github.com/n64-tools/n64-flashcart-menu-metadata/releases) (about 54 MB, cached in `~/.cache/sc64-tools`) and extracts it into `menu/metadata/` on the card. Files that are already up to date are skipped.
+```
+python3 scripts/install_boxart.py /run/media/$USER/SC64              # everything
+python3 scripts/install_boxart.py /run/media/$USER/SC64 --only-mine  # only N64 games found on the card
+```
+
+**Saves:** `scripts/match_saves.py` works out which ROM each old save belongs to, from the file name, the title inside the ROM header, region tags and the save size the game uses, then copies it to `<rom folder>/saves/<rom name>.sav`. It only shows the plan until you add `--apply`. Originals are never changed, and existing saves are only replaced with `--overwrite` (keeping a `.bak`).
+```
+python3 scripts/match_saves.py --saves ~/old-card-backup --roms /run/media/$USER/SC64/n64
+python3 scripts/match_saves.py --saves ~/old-card-backup --roms /run/media/$USER/SC64/n64 --apply
+```
+* EEPROM saves of the wrong size (512 vs 2048 bytes) are trimmed or padded, and EEPROM data is taken out of combined Mupen64Plus/RetroArch `.srm` files.
+* SRAM/FlashRAM inside a combined `.srm`, and other size mismatches, are skipped with a reason. Use a tool such as [N64SaveConverter](https://github.com/Ninjiteu/N64SaveConverter) for those.
+* `--swap-words` byte-swaps SRAM/FlashRAM saves from Project64 (`.sra`/`.fla`).
+* `--next-to-rom`, or `--saves-root <folder> --sd-root <card>`, match the menu's other save locations.
+* Matches marked `check` scored lower; read them before using `--apply`, or raise `--min-score`.
+
 ### Behavior notes
 * The console's reset button goes through startup again, so it relaunches the last game. Hold `START` while resetting to reach the menu.
 * If the autoload ROM is moved, renamed or deleted, hold `START` at power-on to get back to the menu.
 * The autoload target is stored in the `[autoload]` section of `menu/config.ini` on the SD card.
 * In the Favorites tab, Up/Down moves one entry and the fast-scroll button jumps 8. `R` removes the selected favorite.
 * When all 100 favorite slots are full, adding another drops the one at the bottom of the list. History drops its oldest entry the same way.
-* Box art in the Favorites and History panels needs the metadata pack in `menu/metadata/`. Without it the panel shows the title and details only.
+* Box art in the panels needs the metadata pack in `menu/metadata/` (see `scripts/install_boxart.py`). Without it the panel shows the title and details only.
+* Inside a ZIP archive, and for folders, the panel shows the entry type and size only.
+* The screen margin uses the VI's resampling, which softens the picture very slightly. Set it to Off on displays where the edges are already clear.
 * Favorites and history share one file, which is rewritten on every game launch. With 100 favorites this is roughly 15–20 KB.
 * Only N64 ROMs can be favorited. Emulator games (NES, SNES, Game Boy, …) can be quick launched but don't appear in History or Favorites.
 * 64DD disks in History or Favorites open their load screen with `START`, the same as `A`.

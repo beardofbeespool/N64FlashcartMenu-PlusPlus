@@ -9,6 +9,28 @@
 #ifndef COMPONENTS_CONSTANTS_H__
 #define COMPONENTS_CONSTANTS_H__
 
+#include <graphics.h>
+
+/** @brief A menu color theme, selected in the menu settings. */
+typedef struct {
+    const char *name;                /**< Name shown in the settings */
+    color_t background;              /**< Screen background when no image is set */
+    color_t border;                  /**< UI borders and the active tab border */
+    color_t highlight;               /**< Selected row and active tab fill */
+    color_t highlight_outline;       /**< Outline around the selected row */
+    color_t move_highlight;          /**< Selected row fill while it is being moved */
+    color_t scrollbar_bg;            /**< Scrollbar track */
+    color_t scrollbar_inactive;      /**< Scrollbar track when everything fits */
+    color_t scrollbar_position;      /**< Scrollbar position indicator */
+    color_t dialog_bg;               /**< Dialog, progress bar and box art placeholder background */
+    color_t tab_inactive_border;     /**< Inactive tab border */
+    color_t tab_inactive_background; /**< Inactive tab fill */
+    color_t progressbar_done;        /**< Completed part of the progress bar */
+} ui_theme_t;
+
+/** @brief The active color theme, see ui_theme_set(). */
+extern const ui_theme_t *ui_theme;
+
 /**
  * @def TAB_HEIGHT
  * @brief Height of the tabs in the main menu (pixels).
@@ -232,6 +254,18 @@
 #define BOXART_Y_DD                     (LAYOUT_ACTIONS_SEPARATOR_Y - BOXART_HEIGHT_DD - 24)
 
 /**
+ * @def GAME_PANEL_X
+ * @brief Left edge of the game panel shown beside narrow lists; the list scrollbar sits just left of it.
+ */
+#define GAME_PANEL_X                    (BOXART_X - 24)
+
+/**
+ * @def GAME_PANEL_LIST_WIDTH
+ * @brief Width of the list column beside the game panel, excluding its scrollbar.
+ */
+#define GAME_PANEL_LIST_WIDTH           (GAME_PANEL_X - LIST_SCROLLBAR_WIDTH - VISIBLE_AREA_X0)
+
+/**
  * @def LIST_SCROLLBAR_WIDTH
  * @brief Width of the list scrollbar (pixels).
  */
@@ -275,9 +309,9 @@
 
 /**
  * @def BACKGROUND_EMPTY_COLOR
- * @brief Color used when no background image is present (RGBA8888).
+ * @brief Color used when no background image is present, from the active theme.
  */
-#define BACKGROUND_EMPTY_COLOR          RGBA32(0x0E, 0x16, 0x30, 0xFF)
+#define BACKGROUND_EMPTY_COLOR          (ui_theme->background)
 /**
  * @def BACKGROUND_OVERLAY_COLOR
  * @brief Overlay color for the background (RGBA8888, semi-transparent).
@@ -288,58 +322,58 @@
  * @def BORDER_COLOR
  * @brief Color of UI borders (RGBA8888).
  */
-#define BORDER_COLOR                    RGBA32(0x8F, 0xB0, 0xF0, 0xFF)
+#define BORDER_COLOR                    (ui_theme->border)
 
 /**
  * @def PROGRESSBAR_BG_COLOR
  * @brief Background color of the progress bar (RGBA8888).
  */
-#define PROGRESSBAR_BG_COLOR            RGBA32(0x0A, 0x10, 0x24, 0xFF)
+#define PROGRESSBAR_BG_COLOR            (ui_theme->dialog_bg)
 /**
  * @def PROGRESSBAR_DONE_COLOR
  * @brief Color of the completed portion of the progress bar (RGBA8888).
  */
-#define PROGRESSBAR_DONE_COLOR          RGBA32(0x4A, 0x90, 0xFF, 0xFF)
+#define PROGRESSBAR_DONE_COLOR          (ui_theme->progressbar_done)
 
 /**
  * @def SCROLLBAR_BG_COLOR
  * @brief Background color of the scrollbar (RGBA8888).
  */
-#define SCROLLBAR_BG_COLOR              RGBA32(0x1C, 0x28, 0x4C, 0xFF)
+#define SCROLLBAR_BG_COLOR              (ui_theme->scrollbar_bg)
 /**
  * @def SCROLLBAR_INACTIVE_COLOR
  * @brief Inactive color of the scrollbar (RGBA8888).
  */
-#define SCROLLBAR_INACTIVE_COLOR        RGBA32(0x2C, 0x3A, 0x62, 0xFF)
+#define SCROLLBAR_INACTIVE_COLOR        (ui_theme->scrollbar_inactive)
 /**
  * @def SCROLLBAR_POSITION_COLOR
  * @brief Color of the scrollbar position indicator (RGBA8888).
  */
-#define SCROLLBAR_POSITION_COLOR        RGBA32(0xF0, 0xC0, 0x40, 0xFF)
+#define SCROLLBAR_POSITION_COLOR        (ui_theme->scrollbar_position)
 
 /**
  * @def DIALOG_BG_COLOR
  * @brief Background color for dialog boxes (RGBA8888).
  */
-#define DIALOG_BG_COLOR                 RGBA32(0x12, 0x1C, 0x3C, 0xFF)
+#define DIALOG_BG_COLOR                 (ui_theme->dialog_bg)
 
 /**
  * @def BOXART_LOADING_COLOR
  * @brief Color used while boxart is loading (RGBA8888).
  */
-#define BOXART_LOADING_COLOR            RGBA32(0x0A, 0x10, 0x24, 0xFF)
+#define BOXART_LOADING_COLOR            (ui_theme->dialog_bg)
 
 /**
  * @def FILE_LIST_HIGHLIGHT_COLOR
  * @brief Highlight color for file list entries (RGBA8888).
  */
-#define FILE_LIST_HIGHLIGHT_COLOR       RGBA32(0x2E, 0x5B, 0xD6, 0xFF)
+#define FILE_LIST_HIGHLIGHT_COLOR       (ui_theme->highlight)
 
 /**
  * @def HIGHLIGHT_OUTLINE_COLOR
  * @brief Outline color around the selected list row (RGBA8888).
  */
-#define HIGHLIGHT_OUTLINE_COLOR         RGBA32(0xFF, 0xD0, 0x40, 0xFF)
+#define HIGHLIGHT_OUTLINE_COLOR         (ui_theme->highlight_outline)
 
 /**
  * @def HIGHLIGHT_OUTLINE_THICKNESS
@@ -351,33 +385,33 @@
  * @def FILE_LIST_MOVE_HIGHLIGHT_COLOR
  * @brief Highlight color for a list entry that is being moved (RGBA8888).
  */
-#define FILE_LIST_MOVE_HIGHLIGHT_COLOR  RGBA32(0xC0, 0x7A, 0x10, 0xFF)
+#define FILE_LIST_MOVE_HIGHLIGHT_COLOR  (ui_theme->move_highlight)
 
 /**
  * @def CONTEXT_MENU_HIGHLIGHT_COLOR
  * @brief Highlight color for context menu entries (RGBA8888).
  */
-#define CONTEXT_MENU_HIGHLIGHT_COLOR    RGBA32(0x2E, 0x5B, 0xD6, 0xFF)
+#define CONTEXT_MENU_HIGHLIGHT_COLOR    (ui_theme->highlight)
 
 /**
  * @def TAB_INACTIVE_BORDER_COLOR
  * @brief Border color for inactive tabs (RGBA8888).
  */
-#define TAB_INACTIVE_BORDER_COLOR       RGBA32(0x3A, 0x4A, 0x7A, 0xFF)
+#define TAB_INACTIVE_BORDER_COLOR       (ui_theme->tab_inactive_border)
 /**
  * @def TAB_ACTIVE_BORDER_COLOR
  * @brief Border color for active tabs (RGBA8888).
  */
-#define TAB_ACTIVE_BORDER_COLOR         RGBA32(0x8F, 0xB0, 0xF0, 0xFF)
+#define TAB_ACTIVE_BORDER_COLOR         (ui_theme->border)
 /**
  * @def TAB_INACTIVE_BACKGROUND_COLOR
  * @brief Background color for inactive tabs (RGBA8888).
  */
-#define TAB_INACTIVE_BACKGROUND_COLOR   RGBA32(0x18, 0x22, 0x48, 0xFF)
+#define TAB_INACTIVE_BACKGROUND_COLOR   (ui_theme->tab_inactive_background)
 /**
  * @def TAB_ACTIVE_BACKGROUND_COLOR
  * @brief Background color for active tabs (RGBA8888).
  */
-#define TAB_ACTIVE_BACKGROUND_COLOR     RGBA32(0x2E, 0x5B, 0xD6, 0xFF)
+#define TAB_ACTIVE_BACKGROUND_COLOR     (ui_theme->highlight)
 
 #endif /* COMPONENTS_CONSTANTS_H__ */

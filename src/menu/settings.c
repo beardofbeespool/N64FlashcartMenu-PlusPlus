@@ -13,6 +13,8 @@ static settings_t init = {
     .first_run = true,
     .pal60_enabled = false,
     .force_progressive_scan = false,
+    .theme = 0,
+    .screen_margin = 5,
     .show_protected_entries = false,
     .default_directory = "/",
     .use_saves_folder = true,
@@ -57,6 +59,8 @@ void settings_load (settings_t *settings) {
     settings->first_run = ini_get_bool(ini, "menu", "first_run", init.first_run);
     settings->pal60_enabled = ini_get_bool(ini, "menu", "pal60", init.pal60_enabled);
     settings->force_progressive_scan = ini_get_bool(ini, "menu", "force_progressive_scan", init.force_progressive_scan);
+    settings->theme = ini_get_int(ini, "menu", "theme", init.theme);
+    settings->screen_margin = ini_get_int(ini, "menu", "screen_margin", init.screen_margin);
     settings->show_protected_entries = ini_get_bool(ini, "menu", "show_protected_entries", init.show_protected_entries);
     free(settings->default_directory);
     settings->default_directory = strdup(ini_get_string(ini, "menu", "default_directory", init.default_directory));
@@ -103,6 +107,8 @@ void settings_save (settings_t *settings) {
     ini_set_bool(ini, "menu", "first_run", settings->first_run);
     ini_set_bool(ini, "menu", "pal60", settings->pal60_enabled);
     ini_set_bool(ini, "menu", "force_progressive_scan", settings->force_progressive_scan);
+    ini_set_int(ini, "menu", "theme", settings->theme);
+    ini_set_int(ini, "menu", "screen_margin", settings->screen_margin);
     ini_set_bool(ini, "menu", "show_protected_entries", settings->show_protected_entries);
     ini_set_string(ini, "menu", "default_directory", settings->default_directory);
     ini_set_bool(ini, "menu", "use_saves_folder", settings->use_saves_folder);

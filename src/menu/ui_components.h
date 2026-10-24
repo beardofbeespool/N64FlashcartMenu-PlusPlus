@@ -93,6 +93,72 @@ void ui_components_box_draw(int x0, int y0, int x1, int y1, color_t color);
 void ui_components_highlight_draw(int x0, int y0, int x1, int y1, color_t color);
 
 /**
+ * @brief Number of available color themes.
+ */
+int ui_theme_count(void);
+
+/**
+ * @brief Name of a color theme.
+ * 
+ * @param index Theme index.
+ * @return The theme name, or the default theme's name for an invalid index.
+ */
+const char *ui_theme_name(int index);
+
+/**
+ * @brief Make a color theme active.
+ * 
+ * @param index Theme index, an invalid index selects the default theme.
+ */
+void ui_theme_set(int index);
+
+/**
+ * @brief Shrink the whole picture inward, so text stays clear of the screen edges and corners.
+ * 
+ * @param percent Margin on each side, as a percentage of the picture size (0 = full size).
+ */
+void ui_components_screen_margin_apply(int percent);
+
+/**
+ * @brief Select the item the game panel describes.
+ * 
+ * Call every frame. When the item changes the panel is cleared, and its info is
+ * loaded only once the selection has rested on it, so scrolling stays fast.
+ * 
+ * @param id Identifier of the selected item, -1 for none.
+ */
+void ui_components_game_panel_select(int id);
+
+/**
+ * @brief Check whether the selected item's info should be loaded now.
+ * 
+ * @return true once, when the selection has rested long enough.
+ */
+bool ui_components_game_panel_load_due(void);
+
+/**
+ * @brief Load ROM info and box art for the selected item.
+ * 
+ * @param menu Pointer to the menu structure.
+ * @param rom_path Path to the N64 ROM.
+ */
+void ui_components_game_panel_load(menu_t *menu, path_t *rom_path);
+
+/**
+ * @brief Draw the game panel to the right of a narrow list.
+ * 
+ * @param name Name of the selected item, replaced by the game's release name when known.
+ * @param subtitle Gray line under the name, such as the position in the list.
+ * @param details Text shown when no ROM info is loaded, such as the item type.
+ */
+void ui_components_game_panel_draw(const char *name, const char *subtitle, const char *details);
+
+/**
+ * @brief Free the game panel's ROM info and box art, and reset its selection.
+ */
+void ui_components_game_panel_free(void);
+
+/**
  * @brief Draw a border component.
  * 
  * @param x0 Starting x-coordinate.
@@ -250,6 +316,17 @@ void ui_components_background_image_free_only(void);
  * @param selected Index of the selected entry.
  */
 void ui_components_file_list_draw(entry_t *list, int entries, int selected);
+
+/**
+ * @brief Draw the file list in the left column, leaving room for the game panel.
+ * 
+ * File sizes are left out, the game panel shows details for the selected entry.
+ * 
+ * @param list Pointer to the list of file entries.
+ * @param entries Number of entries in the list.
+ * @param selected Index of the currently selected entry.
+ */
+void ui_components_file_list_draw_split(entry_t *list, int entries, int selected);
 
 /**
  * @brief Free file list component cached resources.

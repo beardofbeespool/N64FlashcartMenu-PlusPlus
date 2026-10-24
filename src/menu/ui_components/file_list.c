@@ -100,14 +100,17 @@ static int format_file_size(char *buffer, int64_t size) {
 }
 
 /**
- * @brief Draw the file list UI component.
+ * @brief Draw the file list, full width or as the left column beside the game panel.
  *
  * @param list Pointer to the list of file entries.
  * @param entries Number of entries in the list.
  * @param selected Index of the currently selected entry.
+ * @param split Draw as the narrow left column, without file sizes.
  */
-void ui_components_file_list_draw(entry_t *list, int entries, int selected) {
+static void file_list_draw(entry_t *list, int entries, int selected, bool split) {
     int starting_position = 0;
+    int name_width = split ? (GAME_PANEL_LIST_WIDTH - (TEXT_MARGIN_HORIZONTAL * 2)) : (FILE_LIST_MAX_WIDTH - (TEXT_MARGIN_HORIZONTAL * 2));
+    int highlight_x1 = split ? (VISIBLE_AREA_X0 + GAME_PANEL_LIST_WIDTH) : (FILE_LIST_HIGHLIGHT_X + FILE_LIST_HIGHLIGHT_WIDTH);
 
     if (entries > LIST_ENTRIES && selected >= (LIST_ENTRIES / 2)) {
         starting_position = selected - (LIST_ENTRIES / 2);
@@ -116,7 +119,11 @@ void ui_components_file_list_draw(entry_t *list, int entries, int selected) {
         }
     }
 
-    ui_components_list_scrollbar_draw(selected, entries, LIST_ENTRIES);
+    if (split) {
+        ui_components_scrollbar_draw(GAME_PANEL_X - LIST_SCROLLBAR_WIDTH, LIST_SCROLLBAR_Y, LIST_SCROLLBAR_WIDTH, LIST_SCROLLBAR_HEIGHT, selected, entries, LIST_ENTRIES);
+    } else {
+        ui_components_list_scrollbar_draw(selected, entries, LIST_ENTRIES);
+    }
 
     if (entries == 0) {
         ui_components_main_text_draw(
@@ -161,7 +168,7 @@ void ui_components_file_list_draw(entry_t *list, int entries, int selected) {
 
         rdpq_paragraph_builder_begin(
             &(rdpq_textparms_t) {
-                .width = FILE_LIST_MAX_WIDTH - (TEXT_MARGIN_HORIZONTAL * 2),
+                .width = name_width,
                 .height = LAYOUT_ACTIONS_SEPARATOR_Y - VISIBLE_AREA_Y0  - (TEXT_MARGIN_VERTICAL * 2),
                 .wrap = WRAP_ELLIPSES,
                 .line_spacing = TEXT_LINE_SPACING_ADJUST,
@@ -219,7 +226,7 @@ void ui_components_file_list_draw(entry_t *list, int entries, int selected) {
         ui_components_highlight_draw(
             FILE_LIST_HIGHLIGHT_X,
             highlight_y,
-            FILE_LIST_HIGHLIGHT_X + FILE_LIST_HIGHLIGHT_WIDTH,
+            highlight_x1,
             highlight_y + highlight_height,
             FILE_LIST_HIGHLIGHT_COLOR
         );
@@ -229,6 +236,11 @@ void ui_components_file_list_draw(entry_t *list, int entries, int selected) {
             VISIBLE_AREA_X0 + TEXT_MARGIN_HORIZONTAL,
             VISIBLE_AREA_Y0 + TEXT_MARGIN_VERTICAL + TAB_HEIGHT + TEXT_OFFSET_VERTICAL
         );
+
+        // the narrow column has no room for sizes, the game panel shows them instead
+        if (split) {
+            return;
+        }
 
         rdpq_paragraph_builder_begin(
             &(rdpq_textparms_t) {
@@ -272,4 +284,26 @@ void ui_components_file_list_draw(entry_t *list, int entries, int selected) {
 
         rdpq_paragraph_free(layout);
     }
+}
+
+/**
+ * @brief Draw the file list UI component.
+ *
+ * @param list Pointer to the list of file entries.
+ * @param entries Number of entries in the list.
+ * @param selected Index of the currently selected entry.
+ */
+void ui_components_file_list_draw(entry_t *list, int entries, int selected) {
+    file_list_draw(list, entries, selected, false);
+}
+
+/**
+ * @brief Draw the file list as the left column beside the game panel.
+ *
+ * @param list Pointer to the list of file entries.
+ * @param entries Number of entries in the list.
+ * @param selected Index of the currently selected entry.
+ */
+void ui_components_file_list_draw_split(entry_t *list, int entries, int selected) {
+    file_list_draw(list, entries, selected, true);
 }

@@ -97,6 +97,21 @@ static void set_pal60_type (menu_t *menu, void *arg) {
     
     menu->settings.pal60_enabled = pal60_try_enable;
     settings_save(&menu->settings);
+
+    // the timing preset resets the output area
+    ui_components_screen_margin_apply(menu->settings.screen_margin);
+}
+
+static void set_theme (menu_t *menu, void *arg) {
+    menu->settings.theme = (int)(uintptr_t)(arg);
+    ui_theme_set(menu->settings.theme);
+    settings_save(&menu->settings);
+}
+
+static void set_screen_margin (menu_t *menu, void *arg) {
+    menu->settings.screen_margin = (int)(uintptr_t)(arg);
+    ui_components_screen_margin_apply(menu->settings.screen_margin);
+    settings_save(&menu->settings);
 }
 
 static void set_wrap_file_list_scrolling_type (menu_t *menu, void *arg) {
@@ -314,7 +329,47 @@ static component_context_menu_t set_rumble_enabled_type_context_menu = {
 }};
 #endif
 
+static int get_theme_current_selection (menu_t *menu) {
+    return menu->settings.theme;
+}
+
+// Order and names must match the themes in ui_components/theme.c
+static component_context_menu_t set_theme_context_menu = {
+    .get_default_selection = get_theme_current_selection,
+    .list = {
+        {.text = "Navy", .action = set_theme, .arg = (void *)(uintptr_t)(0) },
+        {.text = "Red", .action = set_theme, .arg = (void *)(uintptr_t)(1) },
+        {.text = "Purple", .action = set_theme, .arg = (void *)(uintptr_t)(2) },
+        {.text = "Green", .action = set_theme, .arg = (void *)(uintptr_t)(3) },
+        {.text = "Yellow", .action = set_theme, .arg = (void *)(uintptr_t)(4) },
+        {.text = "Teal", .action = set_theme, .arg = (void *)(uintptr_t)(5) },
+        {.text = "Pink", .action = set_theme, .arg = (void *)(uintptr_t)(6) },
+        {.text = "Classic Gray", .action = set_theme, .arg = (void *)(uintptr_t)(7) },
+    COMPONENT_CONTEXT_MENU_LIST_END,
+}};
+
+static int get_screen_margin_current_selection (menu_t *menu) {
+    switch (menu->settings.screen_margin) {
+        case 0: return 0;
+        case 5: return 1;
+        case 10: return 2;
+        default: return 3;
+    }
+}
+
+static component_context_menu_t set_screen_margin_context_menu = {
+    .get_default_selection = get_screen_margin_current_selection,
+    .list = {
+        {.text = "Off", .action = set_screen_margin, .arg = (void *)(uintptr_t)(0) },
+        {.text = "Small (5%)", .action = set_screen_margin, .arg = (void *)(uintptr_t)(5) },
+        {.text = "Medium (10%)", .action = set_screen_margin, .arg = (void *)(uintptr_t)(10) },
+        {.text = "Large (15%)", .action = set_screen_margin, .arg = (void *)(uintptr_t)(15) },
+    COMPONENT_CONTEXT_MENU_LIST_END,
+}};
+
 static component_context_menu_t options_context_menu = { .list = {
+    { .text = "Color Theme", .submenu = &set_theme_context_menu },
+    { .text = "Screen Margin", .submenu = &set_screen_margin_context_menu },
     { .text = "Show Hidden Files", .submenu = &set_protected_entries_type_context_menu },
     { .text = "Sound Effects", .submenu = &set_soundfx_enabled_type_context_menu },
     { .text = "Background Music", .submenu = &set_bgm_enabled_type_context_menu },
@@ -389,6 +444,8 @@ static void draw (menu_t *menu, surface_t *d) {
         "  Default Directory : %s\n"
         "  Saves Root Folder : %s\n\n"
         "To change the following menu settings, press 'A':\n"
+        "     Color Theme       : %s\n"
+        "     Screen Margin     : %d%%\n"
         "     Show Hidden Files : %s\n"
         "     Sound Effects     : %s\n"
         "     Background Music  : %s\n"
@@ -409,11 +466,13 @@ static void draw (menu_t *menu, surface_t *d) {
         "     Hide ROM Tags     : %s\n"
         "     Rumble Feedback   : %s\n"
 #endif
-        "\n\n"
-        "* NOTE: This setting may cause the display to go dark. If you get it wrong, you must manually edit the menu/config.ini on the SD card to re-disable it.\n"
+        "\n"
+        "* PAL60 may blank the display. To undo it, edit menu/config.ini on the SD card.\n"
         ,
         menu->settings.default_directory,
         (menu->settings.saves_root_directory[0] != '\0') ? menu->settings.saves_root_directory : "Off (next to ROMs)",
+        ui_theme_name(menu->settings.theme),
+        menu->settings.screen_margin,
         format_switch(menu->settings.show_protected_entries),
         format_switch(menu->settings.soundfx_enabled),
         format_switch(menu->settings.bgm_enabled),

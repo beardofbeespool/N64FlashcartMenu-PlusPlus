@@ -280,6 +280,9 @@ static bool load_archive (menu_t *menu) {
 
     qsort(menu->browser.list, menu->browser.entries, sizeof(entry_t), compare_entry);
 
+    // the selection index now refers to a different entry
+    ui_components_game_panel_free();
+
     return false;
 }
 
@@ -439,6 +442,9 @@ static bool load_directory (menu_t *menu) {
     qsort(menu->browser.list, menu->browser.entries, sizeof(entry_t), compare_entry);
 
     refresh_favorites(menu);
+
+    // the selection index now refers to a different entry
+    ui_components_game_panel_free();
 
     return false;
 }
@@ -748,6 +754,84 @@ static void process (menu_t *menu) {
     }
 }
 
+static const char *format_entry_type (entry_t *entry) {
+    switch (entry->type) {
+        case ENTRY_TYPE_DIR: return "Folder";
+        case ENTRY_TYPE_ROM: return "N64 game";
+        case ENTRY_TYPE_DISK: return "64DD disk";
+        case ENTRY_TYPE_EMULATOR:
+            if (file_has_extensions(entry->name, (const char *[]) { "nes", NULL })) return "NES game";
+            if (file_has_extensions(entry->name, (const char *[]) { "sfc", "smc", NULL })) return "SNES game";
+            if (file_has_extensions(entry->name, (const char *[]) { "gb", NULL })) return "Game Boy game";
+            if (file_has_extensions(entry->name, (const char *[]) { "gbc", NULL })) return "Game Boy Color game";
+            if (file_has_extensions(entry->name, (const char *[]) { "sms", NULL })) return "Master System game";
+            if (file_has_extensions(entry->name, (const char *[]) { "gg", NULL })) return "Game Gear game";
+            if (file_has_extensions(entry->name, (const char *[]) { "sg", NULL })) return "SG-1000 game";
+            if (file_has_extensions(entry->name, (const char *[]) { "chf", NULL })) return "Channel F game";
+            return "Emulated game";
+        case ENTRY_TYPE_ARCHIVE: return "ZIP archive";
+        case ENTRY_TYPE_ARCHIVED: return "File in archive";
+        case ENTRY_TYPE_IMAGE: return "Image";
+        case ENTRY_TYPE_MUSIC: return "Music";
+        case ENTRY_TYPE_TEXT: return "Text file";
+        case ENTRY_TYPE_SAVE: return "Save file";
+        case ENTRY_TYPE_ROM_CHEAT: return "Cheat file";
+        case ENTRY_TYPE_ROM_PATCH: return "ROM patch";
+        case ENTRY_TYPE_ROM_META: return "ROM metadata";
+        default: return "File";
+    }
+}
+
+static void format_entry_size (char *buffer, size_t size, int64_t bytes) {
+    if (bytes < 0) {
+        snprintf(buffer, size, "unknown");
+    } else if (bytes < 1024) {
+        snprintf(buffer, size, "%lld bytes", bytes);
+    } else if (bytes < 1024 * 1024) {
+        snprintf(buffer, size, "%lld KB", bytes / 1024);
+    } else {
+        snprintf(buffer, size, "%lld MB", bytes / 1024 / 1024);
+    }
+}
+
+static void draw_panel (menu_t *menu) {
+    entry_t *entry = menu->browser.entry;
+
+    if (!entry || menu->browser.entries == 0) {
+        return;
+    }
+
+    // names without their extension, except folders where a dot is part of the name
+    char name[256];
+    snprintf(name, sizeof(name), "%s", entry->name);
+    char *dot = strrchr(name, '.');
+    if ((entry->type != ENTRY_TYPE_DIR) && (dot != NULL) && (dot != name)) {
+        *dot = '\0';
+    }
+
+    char subtitle[96];
+    snprintf(subtitle, sizeof(subtitle), "%s%s\n%ld of %ld", format_entry_type(entry), entry->favorite ? " - Favorite" : "", menu->browser.selected + 1, menu->browser.entries);
+
+    char details[64] = "";
+    if (entry->type != ENTRY_TYPE_DIR) {
+        char size[32];
+        format_entry_size(size, sizeof(size), entry->size);
+        snprintf(details, sizeof(details), "Size: %s", size);
+    }
+
+    ui_components_game_panel_draw(name, subtitle, details);
+}
+
+static void panel_update (menu_t *menu) {
+    ui_components_game_panel_select(menu->browser.entry ? menu->browser.selected : -1);
+
+    if (ui_components_game_panel_load_due() && menu->browser.entry && !menu->browser.archive && (menu->browser.entry->type == ENTRY_TYPE_ROM)) {
+        path_t *path = path_clone_push(menu->browser.directory, menu->browser.entry->name);
+        ui_components_game_panel_load(menu, path);
+        path_free(path);
+    }
+}
+
 static void draw (menu_t *menu, surface_t *d) {
     rdpq_attach(d, NULL);
 
@@ -757,7 +841,9 @@ static void draw (menu_t *menu, surface_t *d) {
 
     ui_components_layout_draw_tabbed();
 
-    ui_components_file_list_draw(menu->browser.list, menu->browser.entries, menu->browser.selected);
+    ui_components_file_list_draw_split(menu->browser.list, menu->browser.entries, menu->browser.selected);
+
+    draw_panel(menu);
 
     const char *action = NULL;
 
@@ -871,5 +957,11 @@ void view_browser_init (menu_t *menu) {
 void view_browser_display (menu_t *menu, surface_t *display) {
     process(menu);
 
+    panel_update(menu);
+
     draw(menu, display);
+
+    if (menu->next_mode != MENU_MODE_BROWSER) {
+        ui_components_game_panel_free();
+    }
 }

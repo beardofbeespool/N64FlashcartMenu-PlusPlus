@@ -8,10 +8,6 @@
 
 #define VISIBLE_ITEMS (LIST_ENTRIES) /**< Number of single-line items that fit on screen */
 #define FAST_SCROLL_ITEMS (10) /**< Items skipped by a fast scroll, same as the file list */
-#define INFO_LOAD_DELAY (10) /**< Frames the selection must rest on an item before its info and box art load */
-
-#define PANEL_X (BOXART_X - 24) /**< Left edge of the info panel, list scrollbar sits just left of it */
-#define LIST_WIDTH (PANEL_X - LIST_SCROLLBAR_WIDTH - VISIBLE_AREA_X0) /**< Width of the list column */
 
 typedef enum {
     BOOKKEEPING_TAB_CONTEXT_HISTORY,
@@ -25,13 +21,7 @@ static int selected_item = -1;
 static bookkeeping_item_t *item_list;
 static uint16_t item_max = 0;
 static bool moving_item = false;
-
-// Info panel state, loaded for the selected item once the selection settles
-static int info_item = -1;
-static int info_delay = 0;
-static bool info_valid = false;
-static rom_info_t info;
-static component_boxart_t *info_boxart = NULL;
+static int panel_item = -1;
 
 
 static int item_first() {
@@ -204,66 +194,13 @@ static void process(menu_t *menu) {
     }else if(tab_context == BOOKKEEPING_TAB_CONTEXT_FAVORITE && menu->actions.options && selected_item != -1) {
         bookkeeping_favorite_remove(&menu->bookkeeping, selected_item);
         item_reset_selected(menu);
-        info_item = -2;
+        // the index may be unchanged but now points at another game
+        ui_components_game_panel_free();
         sound_play_effect(SFX_SETTING);
     } else if(tab_context == BOOKKEEPING_TAB_CONTEXT_FAVORITE && menu->actions.lz_context && selected_item != -1) {
         moving_item = true;
         sound_play_effect(SFX_SETTING);
     }
-}
-
-static void info_unload(void) {
-    if(info_boxart) {
-        ui_components_boxart_free(info_boxart);
-        info_boxart = NULL;
-    }
-    if(info_valid) {
-        rom_info_free_meta(&info);
-        info_valid = false;
-    }
-}
-
-static void info_reset(void) {
-    info_unload();
-    info_item = -1;
-    info_delay = 0;
-}
-
-static void info_update(menu_t *menu) {
-    if(moving_item) {
-        // the selected game moves with the selection, so its info stays valid
-        info_item = selected_item;
-        return;
-    }
-
-    if(selected_item != info_item) {
-        info_unload();
-        info_item = selected_item;
-        info_delay = INFO_LOAD_DELAY;
-        return;
-    }
-
-    if(info_delay == 0) {
-        return;
-    }
-
-    if(--info_delay > 0 || selected_item == -1) {
-        return;
-    }
-
-    bookkeeping_item_t *item = &item_list[selected_item];
-    if(item->bookkeeping_type != BOOKKEEPING_TYPE_ROM) {
-        return;
-    }
-
-    memset(&info, 0, sizeof(info));
-    if(rom_config_load(item->primary_path, &info) != ROM_OK) {
-        rom_info_free_meta(&info);
-        return;
-    }
-    info_valid = true;
-
-    info_boxart = ui_components_boxart_init(menu->storage_prefix, info.game_code, info.title, IMAGE_BOXART_FRONT);
 }
 
 // Copies the file name without its extension, for a tidier list
@@ -272,16 +209,6 @@ static void format_item_name(char *buffer, size_t size, path_t *path) {
     char *dot = strrchr(buffer, '.');
     if(dot != NULL && dot != buffer) {
         *dot = '\0';
-    }
-}
-
-static const char *format_expansion_pak(rom_expansion_pak_t expansion_pak) {
-    switch(expansion_pak) {
-        case EXPANSION_PAK_REQUIRED: return "Required";
-        case EXPANSION_PAK_RECOMMENDED: return "Recommended";
-        case EXPANSION_PAK_SUGGESTED: return "Suggested";
-        case EXPANSION_PAK_FAULTY: return "Do not use";
-        default: return NULL;
     }
 }
 
@@ -298,12 +225,12 @@ static void draw_list(menu_t *menu, surface_t *display) {
 
     int list_y = VISIBLE_AREA_Y0 + TEXT_MARGIN_VERTICAL + TAB_HEIGHT + TEXT_OFFSET_VERTICAL;
 
-    ui_components_scrollbar_draw(PANEL_X - LIST_SCROLLBAR_WIDTH, LIST_SCROLLBAR_Y, LIST_SCROLLBAR_WIDTH, LIST_SCROLLBAR_HEIGHT, selected_item, entries, VISIBLE_ITEMS);
+    ui_components_scrollbar_draw(GAME_PANEL_X - LIST_SCROLLBAR_WIDTH, LIST_SCROLLBAR_Y, LIST_SCROLLBAR_WIDTH, LIST_SCROLLBAR_HEIGHT, selected_item, entries, VISIBLE_ITEMS);
 
     if(entries == 0) {
         rdpq_text_printf(
             &(rdpq_textparms_t) {
-                .width = LIST_WIDTH - (TEXT_MARGIN_HORIZONTAL * 2),
+                .width = GAME_PANEL_LIST_WIDTH - (TEXT_MARGIN_HORIZONTAL * 2),
                 .wrap = WRAP_WORD,
             },
             FNT_DEFAULT,
@@ -336,7 +263,7 @@ static void draw_list(menu_t *menu, surface_t *display) {
     int nbytes = strlen(buffer);
     rdpq_paragraph_t *layout = rdpq_paragraph_build(
         &(rdpq_textparms_t) {
-            .width = LIST_WIDTH - (TEXT_MARGIN_HORIZONTAL * 2),
+            .width = GAME_PANEL_LIST_WIDTH - (TEXT_MARGIN_HORIZONTAL * 2),
             .height = LAYOUT_ACTIONS_SEPARATOR_Y - list_y,
             .align = ALIGN_LEFT,
             .valign = VALIGN_TOP,
@@ -355,7 +282,7 @@ static void draw_list(menu_t *menu, surface_t *display) {
         ui_components_highlight_draw(
             VISIBLE_AREA_X0,
             highlight_y,
-            PANEL_X - LIST_SCROLLBAR_WIDTH,
+            VISIBLE_AREA_X0 + GAME_PANEL_LIST_WIDTH,
             highlight_y + highlight_height,
             moving_item ? FILE_LIST_MOVE_HIGHLIGHT_COLOR : FILE_LIST_HIGHLIGHT_COLOR
         );
@@ -372,60 +299,33 @@ static void draw_panel(menu_t *menu, surface_t *display) {
 
     bookkeeping_item_t *item = &item_list[selected_item];
     char name[256];
-    char details[512];
+    char subtitle[64];
+    char details[300];
     details[0] = 0;
 
     format_item_name(name, sizeof(name), item->primary_path);
 
+    snprintf(subtitle, sizeof(subtitle), "%s %d of %d", (tab_context == BOOKKEEPING_TAB_CONTEXT_FAVORITE) ? "Favorite" : "History", selected_item + 1, item_count());
+
     if(item->bookkeeping_type == BOOKKEEPING_TYPE_DISK) {
         char rom_name[256];
         format_item_name(rom_name, sizeof(rom_name), item->secondary_path);
-        snprintf(details, sizeof(details), "64DD disk\n%s%s", rom_name[0] ? "with " : "", rom_name);
-    } else if(info_valid) {
-        if(info.meta.name != NULL && info.meta.name[0] != '\0') {
-            snprintf(name, sizeof(name), "%s", info.meta.name);
-        }
-        if(info.meta.release_date != NULL && info.meta.release_date[0] != '\0') {
-            snprintf(details + strlen(details), sizeof(details) - strlen(details), "Released: %s\n", info.meta.release_date);
-        }
-        if(info.meta.num_players > 0) {
-            snprintf(details + strlen(details), sizeof(details) - strlen(details), "Players: %lu\n", info.meta.num_players);
-        }
-        const char *expansion_pak = format_expansion_pak(info.features.expansion_pak);
-        if(expansion_pak != NULL) {
-            snprintf(details + strlen(details), sizeof(details) - strlen(details), "Expansion Pak: %s\n", expansion_pak);
-        }
-        if(info.features.rumble_pak) {
-            snprintf(details + strlen(details), sizeof(details) - strlen(details), "Rumble Pak\n");
-        }
-    } else if(info_delay == 0 && info_item == selected_item) {
-        snprintf(details, sizeof(details), "File not found");
+        snprintf(details, sizeof(details), "64DD disk%s%s", rom_name[0] ? "\nwith " : "", rom_name);
     }
 
-    int entries = item_count();
-    int panel_text_x = PANEL_X + TEXT_MARGIN_HORIZONTAL;
-    int panel_width = VISIBLE_AREA_X1 - panel_text_x - TEXT_MARGIN_HORIZONTAL;
+    ui_components_game_panel_draw(name, subtitle, details);
+}
 
-    rdpq_text_printf(
-        &(rdpq_textparms_t) {
-            .width = panel_width,
-            .height = BOXART_Y - (VISIBLE_AREA_Y0 + TAB_HEIGHT) - (TEXT_MARGIN_VERTICAL * 2),
-            .wrap = WRAP_WORD,
-        },
-        FNT_DEFAULT,
-        panel_text_x,
-        VISIBLE_AREA_Y0 + TAB_HEIGHT + TEXT_MARGIN_VERTICAL + TEXT_OFFSET_VERTICAL,
-        "^%02X%s^00\n"
-        "^%02X%s %d of %d^00\n"
-        "\n"
-        "%s",
-        STL_YELLOW, name,
-        STL_GRAY, (tab_context == BOOKKEEPING_TAB_CONTEXT_FAVORITE) ? "Favorite" : "History", selected_item + 1, entries,
-        details
-    );
+static void panel_update(menu_t *menu) {
+    // while a favorite is being moved the selected game stays the same, so keep its info
+    if(!moving_item) {
+        panel_item = selected_item;
+    }
 
-    if(info_boxart != NULL) {
-        ui_components_boxart_draw(info_boxart);
+    ui_components_game_panel_select(panel_item);
+
+    if(ui_components_game_panel_load_due() && selected_item != -1 && item_list[selected_item].bookkeeping_type == BOOKKEEPING_TYPE_ROM) {
+        ui_components_game_panel_load(menu, item_list[selected_item].primary_path);
     }
 }
 
@@ -487,17 +387,18 @@ void view_favorite_init (menu_t *menu) {
     item_list = menu->bookkeeping.favorite_items;
     item_max = FAVORITES_COUNT;
 
-    info_reset();
+    ui_components_game_panel_free();
+    panel_item = -1;
     item_reset_selected(menu);
 }
 
 void view_favorite_display (menu_t *menu, surface_t *display) {
     process(menu);
-    info_update(menu);
+    panel_update(menu);
     draw(menu, display);
 
     if(menu->next_mode != MENU_MODE_FAVORITE) {
-        info_reset();
+        ui_components_game_panel_free();
     }
 }
 
@@ -507,16 +408,17 @@ void view_history_init (menu_t *menu) {
     item_list = menu->bookkeeping.history_items;
     item_max = HISTORY_COUNT;
 
-    info_reset();
+    ui_components_game_panel_free();
+    panel_item = -1;
     item_reset_selected(menu);
 }
 
 void view_history_display (menu_t *menu, surface_t *display) {
     process(menu);
-    info_update(menu);
+    panel_update(menu);
     draw(menu, display);
 
     if(menu->next_mode != MENU_MODE_HISTORY) {
-        info_reset();
+        ui_components_game_panel_free();
     }
 }

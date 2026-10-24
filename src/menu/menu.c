@@ -112,7 +112,11 @@ static void menu_init (boot_params_t *boot_params) {
             //vi_set_timing_preset(&VI_TIMING_PAL);
         }
     }
-    
+
+    // applied after the timing preset, which resets the output area
+    ui_components_screen_margin_apply(menu->settings.screen_margin);
+    ui_theme_set(menu->settings.theme);
+
     display_set_fps_limit(FPS_LIMIT);
 
     path_push(path, MENU_CUSTOM_FONT_FILE);

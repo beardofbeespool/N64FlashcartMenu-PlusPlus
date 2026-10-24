@@ -2,5 +2,7 @@
 # These are all bash scripts and should use lf
 *.sh text eol=lf
 *.yml text eol=lf
+# Python scripts are run directly on Linux/macOS, a CRLF shebang would break them
+*.py text eol=lf
 
 src/libs/** linguist-vendored

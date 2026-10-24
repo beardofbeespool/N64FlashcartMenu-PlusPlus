@@ -27,6 +27,23 @@ void ui_components_box_draw (int x0, int y0, int x1, int y1, color_t color) {
 }
 
 /**
+ * @brief Shrink the whole picture inward, away from the screen edges and corners.
+ * 
+ * @param percent Margin on each side, as a percentage of the picture size.
+ */
+void ui_components_screen_margin_apply (int percent) {
+    if (percent < 0) {
+        percent = 0;
+    }
+    // the VI shrinks the whole 4:3 picture, so no layout needs to change
+    vi_set_borders(vi_calc_borders(4.0f / 3.0f, percent / 100.0f));
+    if (percent > 0) {
+        // scaling without resampling leaves letters with uneven widths
+        vi_set_aa_mode(VI_AA_MODE_RESAMPLE);
+    }
+}
+
+/**
  * @brief Draw the highlight for a selected list row.
  * 
  * @param x0 The x-coordinate of the top-left corner.

@@ -26,3 +26,5 @@
 
 # Ignore macOS filesystem cruft
 .DS_Store
+
+__pycache__/

@@ -22,6 +22,12 @@ typedef struct {
     /** @brief Direct the VI to force progressive scan output at 240p. Meant for TVs and other devices which struggle to display interlaced video. */
     bool force_progressive_scan;
 
+    /** @brief Menu color theme index, see ui_theme_set() */
+    int theme;
+
+    /** @brief Picture margin on each side in percent, keeps text away from the screen edges and corners */
+    int screen_margin;
+
     /** @brief Show files/directories that are filtered in the browser */
     bool show_protected_entries;
 
