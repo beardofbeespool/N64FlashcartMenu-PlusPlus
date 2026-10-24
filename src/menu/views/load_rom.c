@@ -342,6 +342,20 @@ static void add_favorite (menu_t *menu, void *arg) {
     bookkeeping_favorite_add(&menu->bookkeeping, menu->load.rom_path, NULL, BOOKKEEPING_TYPE_ROM);
 }
 
+static int find_favorite (menu_t *menu) {
+    return bookkeeping_favorite_find(&menu->bookkeeping, menu->load.rom_path, NULL, BOOKKEEPING_TYPE_ROM);
+}
+
+static void toggle_favorite (menu_t *menu) {
+    int favorite_id = find_favorite(menu);
+
+    if (favorite_id != -1) {
+        bookkeeping_favorite_remove(&menu->bookkeeping, favorite_id);
+    } else {
+        add_favorite(menu, NULL);
+    }
+}
+
 static void iterate_metadata_image(menu_t *menu, int direction) {
     scan_metadata_images(menu);
     bool low_memory_mode = !is_memory_expanded();
@@ -598,6 +612,9 @@ static void process (menu_t *menu) {
     } else if (menu->actions.go_left) {
         iterate_metadata_image(menu, -1);
         sound_play_effect(SFX_CURSOR);
+    } else if (menu->actions.favorite) {
+        toggle_favorite(menu);
+        sound_play_effect(SFX_SETTING);
     }
 }
 
@@ -620,6 +637,20 @@ static void draw (menu_t *menu, surface_t *d) {
             rom_filename,
             menu->load.rom_info.title
         );
+
+        if (find_favorite(menu) != -1) {
+            ui_components_main_text_draw(
+                STL_YELLOW,
+                ALIGN_CENTER, VALIGN_TOP,
+                "\n\nFavorite  (▲: Remove)\n"
+            );
+        } else {
+            ui_components_main_text_draw(
+                STL_GRAY,
+                ALIGN_CENTER, VALIGN_TOP,
+                "\n\n▲: Add to favorites\n"
+            );
+        }
 
         ui_components_main_text_draw(
             STL_DEFAULT,
@@ -901,6 +932,8 @@ void view_load_rom_init (menu_t *menu) {
         //disable the attempt at loading the favorite / history
         menu->load.load_history_id = -1;
         menu->load.load_favorite_id = -1;
+        // cancel any quick launch, there is no ROM to load
+        menu->load_pending.rom_file = false;
         // FIXME: use bookkeeping_favorite_remove() here instead of just showing an error and leaving the broken favorite / history item in place
         menu_show_error(menu, convert_error_message(err));
         return;
@@ -908,6 +941,18 @@ void view_load_rom_init (menu_t *menu) {
 
     if (!is_memory_expanded()) {
         menu->load.rom_info.settings.cheats_enabled = false;
+    }
+
+    // A quick launch (Start in a list) stops at the same Expansion Pak warning as pressing A here
+    bool quick_launch = menu->load_pending.rom_file;
+#ifdef FEATURE_AUTOLOAD_ROM_ENABLED
+    if (menu->settings.rom_autoload_enabled) {
+        quick_launch = false;
+    }
+#endif
+    if (quick_launch && rom_requires_missing_expansion_pak(menu)) {
+        menu->load_pending.rom_file = false;
+        show_expansion_pak_warning = true;
     }
 
     if (menu->load.rom_info.meta.size_limit_exceeded) {

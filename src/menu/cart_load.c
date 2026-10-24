@@ -49,6 +49,54 @@ static bool create_saves_subdirectory (path_t *path) {
 }
 
 /**
+ * @brief Get the save file path for a ROM.
+ *
+ * When a saves root directory is set, saves mirror the ROM directory structure under it
+ * (e.g. sd:/snes/Game.sfc -> sd:/<root>/snes/Game.sav). Otherwise saves are placed next to
+ * the ROM, optionally in a "saves" subdirectory.
+ *
+ * @param menu Pointer to the menu structure.
+ * @param rom_path Path to the ROM.
+ * @param create_directory Create the save directory if it doesn't exist.
+ * @return path_t* The save path, or NULL if the save directory couldn't be created.
+ */
+static path_t *get_save_path (menu_t *menu, path_t *rom_path, bool create_directory) {
+    char *saves_root_directory = menu->settings.saves_root_directory;
+    bool use_saves_root = (saves_root_directory != NULL) && (saves_root_directory[0] != '\0');
+    path_t *path;
+
+    if (use_saves_root) {
+        path = path_init(menu->storage_prefix, saves_root_directory);
+        path_push(path, strip_fs_prefix(path_get(rom_path)));
+    } else {
+        path = path_clone(rom_path);
+    }
+
+    path_ext_replace(path, "sav");
+
+    if (use_saves_root) {
+        if (create_directory) {
+            path_t *save_folder_path = path_clone(path);
+            path_pop(save_folder_path);
+            bool error = directory_create(path_get(save_folder_path));
+            path_free(save_folder_path);
+            if (error) {
+                path_free(path);
+                return NULL;
+            }
+        }
+    } else if (menu->settings.use_saves_folder) {
+        if (create_directory && create_saves_subdirectory(path)) {
+            path_free(path);
+            return NULL;
+        }
+        path_push_subdir(path, SAVE_DIRECTORY_NAME);
+    }
+
+    return path;
+}
+
+/**
  * @brief Convert the ROM save type to the flashcart save type.
  * 
  * @param save_type The ROM save type.
@@ -112,14 +160,12 @@ cart_load_err_t cart_load_n64_rom_and_save (menu_t *menu, flashcart_progress_cal
         return CART_LOAD_ERR_ROM_LOAD_FAIL;
     }
 
-    path_ext_replace(path, "sav");
-    if (menu->settings.use_saves_folder) {
-        if ((save_type != FLASHCART_SAVE_TYPE_NONE) && create_saves_subdirectory(path)) {
-            path_free(path);
-            return CART_LOAD_ERR_CREATE_SAVES_SUBDIR_FAIL;
-        }
-        path_push_subdir(path, SAVE_DIRECTORY_NAME);
+    path_t *save_path = get_save_path(menu, path, (save_type != FLASHCART_SAVE_TYPE_NONE));
+    path_free(path);
+    if (save_path == NULL) {
+        return CART_LOAD_ERR_CREATE_SAVES_SUBDIR_FAIL;
     }
+    path = save_path;
 
     if (save_progress && save_type != FLASHCART_SAVE_TYPE_NONE && !file_exists(path_get(path))) {
         save_progress(1.0f);
@@ -353,14 +399,12 @@ cart_load_err_t cart_load_emulator (menu_t *menu, cart_load_emu_type_t emu_type,
         return CART_LOAD_ERR_EMU_ROM_LOAD_FAIL;
     }
 
-    path_ext_replace(path, "sav");
-    if (menu->settings.use_saves_folder) {
-        if ((save_type != FLASHCART_SAVE_TYPE_NONE) && create_saves_subdirectory(path)) {
-            path_free(path);
-            return CART_LOAD_ERR_CREATE_SAVES_SUBDIR_FAIL;
-        }
-        path_push_subdir(path, SAVE_DIRECTORY_NAME);
+    path_t *save_path = get_save_path(menu, path, (save_type != FLASHCART_SAVE_TYPE_NONE));
+    path_free(path);
+    if (save_path == NULL) {
+        return CART_LOAD_ERR_CREATE_SAVES_SUBDIR_FAIL;
     }
+    path = save_path;
 
     menu->flashcart_err = flashcart_load_save(path_get(path), save_type);
     if (menu->flashcart_err != FLASHCART_OK) {

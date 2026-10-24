@@ -31,6 +31,9 @@ typedef struct {
     /** @brief Put saves into separate directory */
     bool use_saves_folder;
 
+    /** @brief Root directory for all saves, mirroring the ROM directory structure (empty = saves stay next to ROMs) */
+    char *saves_root_directory;
+
     /** @brief Show saves folder in file browser */ 
     bool show_saves_folder;
 

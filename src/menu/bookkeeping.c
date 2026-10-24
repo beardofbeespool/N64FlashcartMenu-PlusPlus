@@ -298,3 +298,28 @@ void bookkeeping_favorite_remove(bookkeeping_t *bookkeeping, int selection) {
         bookkeeping_save(bookkeeping);
     }
 }
+
+/**
+ * @brief Find an item in the bookkeeping favorites.
+ * 
+ * @param bookkeeping Pointer to the bookkeeping structure.
+ * @param primary_path Pointer to the primary path.
+ * @param secondary_path Pointer to the secondary path.
+ * @param type The type of the bookkeeping item.
+ * @return Index of the matching item, or -1 if not found.
+ */
+int bookkeeping_favorite_find(bookkeeping_t *bookkeeping, path_t *primary_path, path_t *secondary_path, bookkeeping_item_types_t type) {
+    bookkeeping_item_t item = {
+        .primary_path = primary_path,
+        .secondary_path = secondary_path,
+        .bookkeeping_type = type
+    };
+
+    for(int i = 0; i < FAVORITES_COUNT; i++) {
+        if(bookkeeping_item_match(&bookkeeping->favorite_items[i], &item)) {
+            return i;
+        }
+    }
+
+    return -1;
+}

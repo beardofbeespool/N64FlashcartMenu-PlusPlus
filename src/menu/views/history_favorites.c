@@ -95,7 +95,7 @@ static void process(menu_t *menu) {
         item_move(true, scroll_speed);
     } else if(menu->actions.go_up) {
         item_move(false, scroll_speed);
-    } else if(menu->actions.enter && selected_item != -1) {
+    } else if((menu->actions.enter || menu->actions.settings) && selected_item != -1) {
                 
         if(tab_context == BOOKKEEPING_TAB_CONTEXT_FAVORITE) {
             menu->load.load_favorite_id = selected_item;
@@ -109,6 +109,8 @@ static void process(menu_t *menu) {
             menu->next_mode = MENU_MODE_LOAD_DISK;
             sound_play_effect(SFX_ENTER);
         } else if(item_list[selected_item].bookkeeping_type == BOOKKEEPING_TYPE_ROM) {
+            // Start skips the ROM info screen
+            menu->load_pending.rom_file = menu->actions.settings;
             menu->next_mode = MENU_MODE_LOAD_ROM;
             sound_play_effect(SFX_ENTER);
         }
@@ -217,8 +219,8 @@ static void draw(menu_t *menu, surface_t *display) {
         ui_components_actions_bar_text_draw(
             STL_DEFAULT,
             ALIGN_LEFT, VALIGN_TOP,
-            "A: Load Game\n"
-            "\n"
+            "A: Game Info\n"
+            "Start: Launch\n"
         );
         
         if(tab_context == BOOKKEEPING_TAB_CONTEXT_FAVORITE && selected_item != -1) {

@@ -269,6 +269,7 @@ static bool load_archive (menu_t *menu) {
         entry->type = ENTRY_TYPE_ARCHIVED;
         entry->size = info.m_uncomp_size;
         entry->index = i;
+        entry->favorite = false;
         menu->browser.entries++;
     }
 
@@ -280,6 +281,40 @@ static bool load_archive (menu_t *menu) {
     qsort(menu->browser.list, menu->browser.entries, sizeof(entry_t), compare_entry);
 
     return false;
+}
+
+static int find_entry_favorite (menu_t *menu, entry_t *entry) {
+    if (menu->browser.archive || (entry->type != ENTRY_TYPE_ROM)) {
+        return -1;
+    }
+
+    path_t *path = path_clone_push(menu->browser.directory, entry->name);
+    int favorite_id = bookkeeping_favorite_find(&menu->bookkeeping, path, NULL, BOOKKEEPING_TYPE_ROM);
+    path_free(path);
+
+    return favorite_id;
+}
+
+static void refresh_favorites (menu_t *menu) {
+    for (int32_t i = 0; i < menu->browser.entries; i++) {
+        entry_t *entry = &menu->browser.list[i];
+        entry->favorite = (find_entry_favorite(menu, entry) != -1);
+    }
+}
+
+static void toggle_entry_favorite (menu_t *menu, entry_t *entry) {
+    int favorite_id = find_entry_favorite(menu, entry);
+
+    if (favorite_id != -1) {
+        bookkeeping_favorite_remove(&menu->bookkeeping, favorite_id);
+    } else {
+        path_t *path = path_clone_push(menu->browser.directory, entry->name);
+        bookkeeping_favorite_add(&menu->bookkeeping, path, NULL, BOOKKEEPING_TYPE_ROM);
+        path_free(path);
+    }
+
+    // Adding to a full list drops the oldest favorite, which may be another entry in this directory
+    refresh_favorites(menu);
 }
 
 static bool load_directory (menu_t *menu) {
@@ -382,6 +417,7 @@ static bool load_directory (menu_t *menu) {
 
             entry->size = info.d_size;
             entry->index = menu->browser.entries;
+            entry->favorite = false;
             menu->browser.entries++;
         }
 
@@ -401,6 +437,8 @@ static bool load_directory (menu_t *menu) {
     }
 
     qsort(menu->browser.list, menu->browser.entries, sizeof(entry_t), compare_entry);
+
+    refresh_favorites(menu);
 
     return false;
 }
@@ -524,22 +562,11 @@ static void set_default_directory (menu_t *menu, void *arg) {
     settings_save(&menu->settings);
 }
 
-static component_context_menu_t entry_context_menu = {
-    .list = {
-        { .text = "Show entry properties", .action = show_properties },
-        { .text = "Delete selected entry", .action = delete_entry },
-        { .text = "Set current directory as default", .action = set_default_directory },
-        COMPONENT_CONTEXT_MENU_LIST_END,
-    }
-};
-
-static component_context_menu_t archive_context_menu = {
-    .list = {
-        { .text = "Show entry properties", .action = show_properties },
-        { .text = "Extract selected entry", .action = extract_entry },
-        COMPONENT_CONTEXT_MENU_LIST_END,
-    }
-};
+static void set_saves_root_directory (menu_t *menu, void *arg) {
+    free(menu->settings.saves_root_directory);
+    menu->settings.saves_root_directory = strdup(strip_fs_prefix(path_get(menu->browser.directory)));
+    settings_save(&menu->settings);
+}
 
 static void set_menu_next_mode (menu_t *menu, void *arg) {
     menu_mode_t next_mode = (menu_mode_t) (arg);
@@ -554,6 +581,29 @@ static component_context_menu_t settings_context_menu = {
         { .text = "Menu information", .action = set_menu_next_mode, .arg = (void *) (MENU_MODE_CREDITS) },
         { .text = "Flashcart information", .action = set_menu_next_mode, .arg = (void *) (MENU_MODE_FLASHCART) },
         { .text = "N64 information", .action = set_menu_next_mode, .arg = (void *) (MENU_MODE_SYSTEM_INFO) },
+        COMPONENT_CONTEXT_MENU_LIST_END,
+    }
+};
+
+static void show_settings_menu (menu_t *menu, void *arg) {
+    ui_components_context_menu_show(&settings_context_menu);
+}
+
+static component_context_menu_t entry_context_menu = {
+    .list = {
+        { .text = "Show entry properties", .action = show_properties },
+        { .text = "Delete selected entry", .action = delete_entry },
+        { .text = "Set current directory as default", .action = set_default_directory },
+        { .text = "Set current directory as saves root", .action = set_saves_root_directory },
+        { .text = "Menu settings and info", .action = show_settings_menu },
+        COMPONENT_CONTEXT_MENU_LIST_END,
+    }
+};
+
+static component_context_menu_t archive_context_menu = {
+    .list = {
+        { .text = "Show entry properties", .action = show_properties },
+        { .text = "Extract selected entry", .action = extract_entry },
         COMPONENT_CONTEXT_MENU_LIST_END,
     }
 };
@@ -674,8 +724,20 @@ static void process (menu_t *menu) {
     } else if (menu->actions.options && menu->browser.entry) {
         ui_components_context_menu_show(menu->browser.archive ? &archive_context_menu : &entry_context_menu);
         sound_play_effect(SFX_SETTING);
+    } else if (menu->actions.settings && menu->browser.entry && (menu->browser.entry->type == ENTRY_TYPE_ROM)) {
+        // Quick launch, skipping the ROM info screen
+        menu->load_pending.rom_file = true;
+        menu->next_mode = MENU_MODE_LOAD_ROM;
+        sound_play_effect(SFX_ENTER);
+    } else if (menu->actions.settings && menu->browser.entry && (menu->browser.entry->type == ENTRY_TYPE_EMULATOR)) {
+        menu->load_pending.emulator_file = true;
+        menu->next_mode = MENU_MODE_LOAD_EMULATOR;
+        sound_play_effect(SFX_ENTER);
     } else if (menu->actions.settings) {
         ui_components_context_menu_show(&settings_context_menu);
+        sound_play_effect(SFX_SETTING);
+    } else if (menu->actions.lz_context && menu->browser.entry && (menu->browser.entry->type == ENTRY_TYPE_ROM)) {
+        toggle_entry_favorite(menu, menu->browser.entry);
         sound_play_effect(SFX_SETTING);
     } else if (menu->actions.go_right) {
         menu->next_mode = MENU_MODE_HISTORY;
@@ -702,7 +764,8 @@ static void draw (menu_t *menu, surface_t *d) {
     if (menu->browser.entry) {
         switch (menu->browser.entry->type) {
             case ENTRY_TYPE_DIR: action = "A: Enter"; break;
-            case ENTRY_TYPE_ROM: action = "A: Load"; break;
+            case ENTRY_TYPE_ROM: action = menu->browser.entry->favorite ? "A: Info  L|Z: Unfav" : "A: Info  L|Z: Fav"; break;
+            case ENTRY_TYPE_EMULATOR: action = "A: Info"; break;
             case ENTRY_TYPE_DISK: action = "A: Load"; break;
             case ENTRY_TYPE_IMAGE: action = "A: Show"; break;
             case ENTRY_TYPE_TEXT: action = "A: View"; break;
@@ -724,8 +787,9 @@ static void draw (menu_t *menu, surface_t *d) {
     ui_components_actions_bar_text_draw(
         STL_DEFAULT,
         ALIGN_RIGHT, VALIGN_TOP,
-        "^%02XStart: Settings^00\n"
+        "Start: %s\n"
         "^%02XR:  Options^00",
+        (menu->browser.entry && ((menu->browser.entry->type == ENTRY_TYPE_ROM) || (menu->browser.entry->type == ENTRY_TYPE_EMULATOR))) ? "Launch" : "Settings",
         menu->browser.entries == 0 ? STL_GRAY : STL_DEFAULT
     );
 
@@ -799,6 +863,9 @@ void view_browser_init (menu_t *menu) {
             menu->browser.valid = false;
         }
     }
+
+    // Favorites may have changed in other views
+    refresh_favorites(menu);
 }
 
 void view_browser_display (menu_t *menu, surface_t *display) {

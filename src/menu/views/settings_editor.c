@@ -31,6 +31,12 @@ static void set_use_saves_folder_type (menu_t *menu, void *arg) {
     settings_save(&menu->settings);
 }
 
+static void clear_saves_root_directory (menu_t *menu, void *arg) {
+    free(menu->settings.saves_root_directory);
+    menu->settings.saves_root_directory = strdup("");
+    settings_save(&menu->settings);
+}
+
 static void set_show_saves_folder_type (menu_t *menu, void *arg) {
     menu->settings.show_saves_folder = (bool)(uintptr_t)(arg);
     settings_save(&menu->settings);
@@ -313,6 +319,7 @@ static component_context_menu_t options_context_menu = { .list = {
     { .text = "Sound Effects", .submenu = &set_soundfx_enabled_type_context_menu },
     { .text = "Background Music", .submenu = &set_bgm_enabled_type_context_menu },
     { .text = "Use Saves Folder", .submenu = &set_use_saves_folder_type_context_menu },
+    { .text = "Saves Root: Off", .action = clear_saves_root_directory },
     { .text = "Show Saves Folder", .submenu = &set_show_saves_folder_type_context_menu },
     { .text = "Show Save Files", .submenu = &set_show_save_files_type_context_menu },
     { .text = "Show Cheat Files", .submenu = &set_show_cheat_files_type_context_menu },
@@ -379,7 +386,8 @@ static void draw (menu_t *menu, surface_t *d) {
         STL_DEFAULT,
         ALIGN_LEFT, VALIGN_TOP,
         "\n\n"
-        "  Default Directory : %s\n\n"
+        "  Default Directory : %s\n"
+        "  Saves Root Folder : %s\n\n"
         "To change the following menu settings, press 'A':\n"
         "     Show Hidden Files : %s\n"
         "     Sound Effects     : %s\n"
@@ -405,6 +413,7 @@ static void draw (menu_t *menu, surface_t *d) {
         "* NOTE: This setting may cause the display to go dark. If you get it wrong, you must manually edit the menu/config.ini on the SD card to re-disable it.\n"
         ,
         menu->settings.default_directory,
+        (menu->settings.saves_root_directory[0] != '\0') ? menu->settings.saves_root_directory : "Off (next to ROMs)",
         format_switch(menu->settings.show_protected_entries),
         format_switch(menu->settings.soundfx_enabled),
         format_switch(menu->settings.bgm_enabled),

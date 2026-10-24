@@ -15,9 +15,25 @@ This menu is not affiliated with any particular flashcart and does not necessari
 > New users are invited to read the latest [Documentation / User Guide](./docs/00_index.md).
 
 ## About this fork
-This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodnikowy/N64FlashcartMenu) V0.3.5, not an official release. It adds two features for the SummerCart64:
+This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodnikowy/N64FlashcartMenu) V0.3.5, not an official release. It adds these features for the SummerCart64:
 * **Autoload last game:** launching a game makes it the autoload target, so the console boots straight back into your last game. Hold `START` while powering on to get the menu instead.
 * **100 favorites:** the Favorites tab holds up to 100 games instead of 8, and the list scrolls.
+* **Quick launch:** press `START` on a game in the file list, History or Favorites to launch it without opening the game info screen.
+* **One-button favorites:** press `L` or `Z` on a game in the file list, or D-pad/C `▲` on the game info screen, to add or remove it. Favorited games are marked with a yellow `*` in the file list.
+* **Optional saves root folder:** keep all saves in one folder that mirrors your ROM folders, instead of next to each ROM. Off by default.
+
+### Controls added or changed
+| Screen | Button | Action |
+|---|---|---|
+| File list | `START` on an N64 or emulator ROM | Launch the game immediately |
+| File list | `START` on a folder or other file | Settings menu (unchanged) |
+| File list | `L` / `Z` on an N64 ROM | Add to / remove from favorites |
+| File list | `R` → *Menu settings and info* | Settings menu, for folders that contain only games |
+| File list | `R` → *Set current directory as saves root* | Use the current folder as the saves root |
+| File list | `A` on a ROM | Game info screen (unchanged) |
+| History / Favorites | `START` on an N64 ROM | Launch the game immediately |
+| Game info screen | D-pad `▲` or C-`▲` | Add to / remove from favorites |
+| Menu Settings | *Saves Root: Off* | Turn the saves root off again |
 
 ### What changed
 * `src/menu/views/load_rom.c`: after a successful ROM load, the ROM's folder and filename are saved as the autoload target. This is skipped when the boot was itself an autoload, so the SD card is not rewritten on every power-on.
@@ -26,7 +42,14 @@ This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodniko
 * `src/menu/bookkeeping.h`: raised `FAVORITES_COUNT` from 8 to 100.
 * `src/menu/ini_parser.c`: raised `INI_MAX_PAIRS` from 64 to 512. Each favorite uses 3 keys, so the old cap stopped saving after about 21 favorites.
 * `src/menu/bookkeeping.c`: empty history and favorite slots are no longer written to the history file, so its size follows the number of entries actually used. Existing files still load.
-* `src/menu/views/history_favorites.c`: the History and Favorites tabs now scroll, keep the selection centered like the file browser, show a scrollbar, and only draw the 8 visible entries.
+* `src/menu/views/history_favorites.c`: the History and Favorites tabs now scroll, keep the selection centered like the file browser, show a scrollbar, and only draw the 8 visible entries. `START` launches the selected game.
+* `src/menu/actions.c`, `src/menu/menu_state.h`: new `favorite` action, triggered once per press of D-pad up or C-up (the analog stick is ignored so a nudge can't toggle it).
+* `src/menu/bookkeeping.c`: new `bookkeeping_favorite_find()` to check whether a game is already a favorite.
+* `src/menu/views/load_rom.c`: the game info screen shows the favorite status under the title and toggles it with `▲`. A quick launch skips this screen, but still stops at the Expansion Pak warning when a game needs one.
+* `src/menu/views/browser.c`, `src/menu/ui_components/file_list.c`: `START` quick launch, `L`/`Z` favorite toggle, the `*` marker, the saves root option, and a *Menu settings and info* entry in the `R` menu.
+* `src/menu/views/load_emulator.c`: emulator ROMs can be quick launched from the file list.
+* `src/menu/cart_load.c`: one `get_save_path()` helper builds the save path for N64 and emulator games, including the saves root option.
+* `src/menu/settings.c`, `src/menu/settings.h`, `src/menu/views/settings_editor.c`: new `saves_root_directory` setting, shown in Menu Settings with an option to turn it off.
 
 ### Building
 The upstream autoload code is disabled by default, so it must be enabled with a build flag. Open the repo in the `N64FlashcartMenu-ci` dev container, then:
@@ -46,6 +69,10 @@ Copy `output/sc64menu.n64` to the root of your SD card.
 * In the Favorites tab, Up/Down moves one entry and the fast-scroll button jumps 8. `R` removes the selected favorite.
 * When all 100 favorite slots are full, adding another drops the oldest one at the bottom of the list.
 * Favorites and history share one file, which is rewritten on every game launch. With 100 favorites this is roughly 15–20 KB.
+* Only N64 ROMs can be favorited. Emulator games (NES, SNES, Game Boy, …) can be quick launched but don't appear in History or Favorites.
+* 64DD disks in History or Favorites open their load screen with `START`, the same as `A`.
+* With the saves root set to `/saves`, `sd:/snes/Game.sfc` saves to `sd:/saves/snes/Game.sav`. The folders are created on first save. Existing saves are not moved, so move your `.sav` files before switching. While a saves root is set, the *Use Saves Folder* setting is ignored.
+* The saves root is stored as `saves_root_directory` in the `[menu]` section of `menu/config.ini`. Empty means off.
 * Tested on a SummerCart64 only.
 
 ## Flashcart Support

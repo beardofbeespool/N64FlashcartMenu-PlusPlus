@@ -123,7 +123,7 @@ static void load (menu_t *menu) {
 
 
 void view_load_emulator_init (menu_t *menu) {
-    menu->load_pending.emulator_file = false;
+    // emulator_file is left as is, so a quick launch (Start in the browser) loads straight away
 
     path_t *path = path_clone_push(menu->browser.directory, menu->browser.entry->name);
 
@@ -146,6 +146,7 @@ void view_load_emulator_init (menu_t *menu) {
     } else if (file_has_extensions(path_get(path), emu_dev_rom_extensions)) {
         emu_type = CART_LOAD_EMU_TYPE_DEV;
     } else {
+        menu->load_pending.emulator_file = false;
         menu_show_error(menu, "Unsupported ROM");
     }
 

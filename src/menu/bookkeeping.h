@@ -81,4 +81,15 @@ void bookkeeping_favorite_add(bookkeeping_t *bookkeeping, path_t *primary_path, 
  */
 void bookkeeping_favorite_remove(bookkeeping_t *bookkeeping, int selection);
 
+/**
+ * @brief Find a ROM in the favorites.
+ *
+ * @param bookkeeping The bookkeeping structure.
+ * @param primary_path The primary path of the ROM.
+ * @param secondary_path The secondary path of the ROM.
+ * @param type The type of the bookkeeping item.
+ * @return The index of the favorite item, or -1 if not found.
+ */
+int bookkeeping_favorite_find(bookkeeping_t *bookkeeping, path_t *primary_path, path_t *secondary_path, bookkeeping_item_types_t type);
+
 #endif /* BOOKKEEPING_H__ */

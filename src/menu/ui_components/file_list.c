@@ -15,6 +15,11 @@
  * @brief Icon string for directory entries in the file list.
  */
 static const char *directory_icon = "[DIR] ";
+
+/**
+ * @brief Marker string for favorite ROM entries in the file list.
+ */
+static const char *favorite_icon = "* ";
 // static const char *archive_icon = "[Zip] ";
 // static const char *rom_icon = "[Rom] ";
 // static const char *disk_icon = "[Disk] ";
@@ -137,6 +142,9 @@ void ui_components_file_list_draw(entry_t *list, int entries, int selected) {
             size_t length = strlen(list[entry_index].name);
             name_lengths[i] = length;
             total_length += length;
+            if (list[entry_index].favorite) {
+                total_length += strlen(favorite_icon);
+            }
         }
 
         file_list_layout = file_list_layout_get(total_length);
@@ -185,6 +193,11 @@ void ui_components_file_list_draw(entry_t *list, int entries, int selected) {
                 case ENTRY_TYPE_ROM_META: style = STL_GREEN; break;
                 case ENTRY_TYPE_OTHER: style = STL_GRAY; break;
                 default: style = STL_GRAY; break;
+            }
+
+            if (entry->favorite) {
+                rdpq_paragraph_builder_style(STL_YELLOW);
+                rdpq_paragraph_builder_span(favorite_icon, strlen(favorite_icon));
             }
 
             rdpq_paragraph_builder_style(style);

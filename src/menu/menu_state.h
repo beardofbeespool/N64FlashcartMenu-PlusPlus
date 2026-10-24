@@ -74,6 +74,7 @@ typedef struct {
     entry_type_t type;
     int64_t size;
     int32_t index;
+    bool favorite;
 } entry_t;
 
 typedef struct {
@@ -114,6 +115,7 @@ typedef struct {
         bool options;
         bool settings;
         bool lz_context;
+        bool favorite;
     } actions;
 
     struct {
