@@ -287,9 +287,7 @@ static void set_tv_type (menu_t *menu, void *arg) {
 }
 #ifdef FEATURE_AUTOLOAD_ROM_ENABLED
 static void set_autoload_type (menu_t *menu, void *arg) {
-    free(menu->settings.rom_autoload_path);
     menu->settings.rom_autoload_path = strdup(strip_fs_prefix(path_get(menu->browser.directory)));
-    free(menu->settings.rom_autoload_filename);
     menu->settings.rom_autoload_filename = strdup(menu->browser.entry->name);
     // FIXME: add a confirmation box here! (press start on reboot)
     menu->settings.rom_autoload_enabled = true;
@@ -796,6 +794,18 @@ static void load (menu_t *menu) {
     }
 
     bookkeeping_history_add(&menu->bookkeeping, menu->load.rom_path, NULL, BOOKKEEPING_TYPE_ROM);
+#ifdef FEATURE_AUTOLOAD_ROM_ENABLED
+    // Remember this ROM as the autoload target, unless this boot was itself an autoload.
+    if (!menu->settings.rom_autoload_enabled) {
+        path_t *autoload_dir = path_clone(menu->load.rom_path);
+        path_pop(autoload_dir);
+        menu->settings.rom_autoload_path = strdup(strip_fs_prefix(path_get(autoload_dir)));
+        menu->settings.rom_autoload_filename = strdup(path_last_get(menu->load.rom_path));
+        menu->settings.rom_autoload_enabled = true;
+        settings_save(&menu->settings);
+        path_free(autoload_dir);
+    }
+#endif
 
     menu->next_mode = MENU_MODE_BOOT;
 

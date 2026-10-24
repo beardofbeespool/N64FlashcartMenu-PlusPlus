@@ -1,3 +1,4 @@
+#include <string.h>
 #include "utils/fs.h"
 #include "views.h"
 
@@ -17,8 +18,8 @@ void view_startup_init (menu_t *menu) {
 
         if (menu->settings.rom_autoload_enabled && b_held.start) {
             menu->settings.rom_autoload_enabled = false;
-            menu->settings.rom_autoload_path = "";
-            menu->settings.rom_autoload_filename = "";
+            menu->settings.rom_autoload_path = strdup("");
+            menu->settings.rom_autoload_filename = strdup("");
             settings_save(&menu->settings);
         }
     }
