@@ -198,8 +198,13 @@ static void process(menu_t *menu) {
         ui_components_game_panel_free();
         sound_play_effect(SFX_SETTING);
     } else if(tab_context == BOOKKEEPING_TAB_CONTEXT_FAVORITE && menu->actions.lz_context && selected_item != -1) {
-        moving_item = true;
-        sound_play_effect(SFX_SETTING);
+        if(menu->settings.favorites_alphabetical) {
+            // the list is kept sorted, so there is no manual order to change
+            sound_play_effect(SFX_ERROR);
+        } else {
+            moving_item = true;
+            sound_play_effect(SFX_SETTING);
+        }
     }
 }
 
@@ -323,6 +328,7 @@ static void panel_update(menu_t *menu) {
     }
 
     ui_components_game_panel_select(panel_item);
+    ui_components_game_panel_poll(menu);
 
     if(ui_components_game_panel_load_due() && selected_item != -1 && item_list[selected_item].bookkeeping_type == BOOKKEEPING_TYPE_ROM) {
         ui_components_game_panel_load(menu, item_list[selected_item].primary_path);
@@ -366,7 +372,9 @@ static void draw(menu_t *menu, surface_t *display) {
                 STL_DEFAULT,
                 ALIGN_RIGHT, VALIGN_TOP,
                 "R: Remove item\n"
-                "L|Z: Reorder\n"
+                "^%02X%s^00\n",
+                menu->settings.favorites_alphabetical ? STL_GRAY : STL_DEFAULT,
+                menu->settings.favorites_alphabetical ? "Sorted A-Z" : "L|Z: Reorder"
             );
         }
     }

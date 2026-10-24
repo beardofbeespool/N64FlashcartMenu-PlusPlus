@@ -28,6 +28,9 @@ typedef struct {
     /** @brief Picture margin on each side in percent, keeps text away from the screen edges and corners */
     int screen_margin;
 
+    /** @brief Keep favorites sorted by name instead of in the order they were added and arranged */
+    bool favorites_alphabetical;
+
     /** @brief Show files/directories that are filtered in the browser */
     bool show_protected_entries;
 

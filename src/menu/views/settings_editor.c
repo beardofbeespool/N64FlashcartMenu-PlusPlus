@@ -108,6 +108,16 @@ static void set_theme (menu_t *menu, void *arg) {
     settings_save(&menu->settings);
 }
 
+static void set_favorites_alphabetical (menu_t *menu, void *arg) {
+    menu->settings.favorites_alphabetical = (bool)(uintptr_t)(arg);
+    menu->bookkeeping.favorites_alphabetical = menu->settings.favorites_alphabetical;
+    if (menu->settings.favorites_alphabetical) {
+        bookkeeping_favorites_sort(&menu->bookkeeping);
+        bookkeeping_save(&menu->bookkeeping);
+    }
+    settings_save(&menu->settings);
+}
+
 static void set_screen_margin (menu_t *menu, void *arg) {
     menu->settings.screen_margin = (int)(uintptr_t)(arg);
     ui_components_screen_margin_apply(menu->settings.screen_margin);
@@ -367,9 +377,22 @@ static component_context_menu_t set_screen_margin_context_menu = {
     COMPONENT_CONTEXT_MENU_LIST_END,
 }};
 
+static int get_favorites_alphabetical_current_selection (menu_t *menu) {
+    return menu->settings.favorites_alphabetical ? 1 : 0;
+}
+
+static component_context_menu_t set_favorites_alphabetical_context_menu = {
+    .get_default_selection = get_favorites_alphabetical_current_selection,
+    .list = {
+        {.text = "Manual (new at bottom)", .action = set_favorites_alphabetical, .arg = (void *)(uintptr_t)(false) },
+        {.text = "A-Z", .action = set_favorites_alphabetical, .arg = (void *)(uintptr_t)(true) },
+    COMPONENT_CONTEXT_MENU_LIST_END,
+}};
+
 static component_context_menu_t options_context_menu = { .list = {
     { .text = "Color Theme", .submenu = &set_theme_context_menu },
     { .text = "Screen Margin", .submenu = &set_screen_margin_context_menu },
+    { .text = "Favorites Order", .submenu = &set_favorites_alphabetical_context_menu },
     { .text = "Show Hidden Files", .submenu = &set_protected_entries_type_context_menu },
     { .text = "Sound Effects", .submenu = &set_soundfx_enabled_type_context_menu },
     { .text = "Background Music", .submenu = &set_bgm_enabled_type_context_menu },
@@ -446,6 +469,7 @@ static void draw (menu_t *menu, surface_t *d) {
         "To change the following menu settings, press 'A':\n"
         "     Color Theme       : %s\n"
         "     Screen Margin     : %d%%\n"
+        "     Favorites Order   : %s\n"
         "     Show Hidden Files : %s\n"
         "     Sound Effects     : %s\n"
         "     Background Music  : %s\n"
@@ -456,7 +480,7 @@ static void draw (menu_t *menu, surface_t *d) {
         "*    PAL60 Mode        : %s\n"
         "     Wrap File List    : %s\n"
 #ifdef FEATURE_AUTOLOAD_ROM_ENABLED
-        "     Autoload ROM      : %s\n\n"
+        "     Autoload ROM      : %s\n"
         "     ROM Loading Bar   : %s\n"
 #else
         "     Fast Reboot ROM   : %s\n"
@@ -473,6 +497,7 @@ static void draw (menu_t *menu, surface_t *d) {
         (menu->settings.saves_root_directory[0] != '\0') ? menu->settings.saves_root_directory : "Off (next to ROMs)",
         ui_theme_name(menu->settings.theme),
         menu->settings.screen_margin,
+        menu->settings.favorites_alphabetical ? "A-Z" : "Manual",
         format_switch(menu->settings.show_protected_entries),
         format_switch(menu->settings.soundfx_enabled),
         format_switch(menu->settings.bgm_enabled),

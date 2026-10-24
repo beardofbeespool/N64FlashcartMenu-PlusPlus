@@ -339,7 +339,9 @@ static void set_clear_rdram_option(menu_t *menu, void *arg) {
 }
 
 static void add_favorite (menu_t *menu, void *arg) {
-    bookkeeping_favorite_add(&menu->bookkeeping, menu->load.rom_path, NULL, BOOKKEEPING_TYPE_ROM);
+    if (!bookkeeping_favorite_add(&menu->bookkeeping, menu->load.rom_path, NULL, BOOKKEEPING_TYPE_ROM)) {
+        menu_show_error(menu, "Favorites are full.\nRemove one to add another.");
+    }
 }
 
 static int find_favorite (menu_t *menu) {

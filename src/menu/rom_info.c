@@ -1070,6 +1070,8 @@ static bool load_rom_meta_from_embedded_zip (const char *rom_path, rom_header_t 
     return success;
 }
 
+static bool load_rom_meta_from_ini (const char *meta_path_str, rom_info_t *rom_info);
+
 static void load_rom_meta_from_file (path_t *path, rom_info_t *rom_info) {
     path_t *rom_info_meta_path = path_clone(path);
 
@@ -1114,9 +1116,15 @@ static void load_rom_meta_from_file (path_t *path, rom_info_t *rom_info) {
     }
     
     debugf("[META] load_rom_meta_from_file: using metadata.ini at '%s'\n", meta_path_str);
+    load_rom_meta_from_ini(meta_path_str, rom_info);
+    debugf("[META] load_rom_meta_from_file: complete\n");
+    path_free(rom_info_meta_path);
+}
+
+static bool load_rom_meta_from_ini (const char *meta_path_str, rom_info_t *rom_info) {
     ini_t *rom_meta_ini = ini_load(meta_path_str);
     if (rom_meta_ini) {
-        debugf("[META] load_rom_meta_from_file: loaded as INI file\n");
+        debugf("[META] load_rom_meta_from_ini: loaded as INI file\n");
         bool ok = true;
         ok &= replace_owned_string(&rom_info->meta.name,              ini_get_string(rom_meta_ini, "meta", "name",         ""));
         ok &= replace_owned_string(&rom_info->meta.author,            ini_get_string(rom_meta_ini, "meta", "author",       "Not specified"));
@@ -1130,11 +1138,33 @@ static void load_rom_meta_from_file (path_t *path, rom_info_t *rom_info) {
         if (ok) {
             debugf("[META] Loaded from INI file: name='%s', author='%s'\n", rom_info->meta.name, rom_info->meta.author);
         } else {
-            debugf("[META] load_rom_meta_from_file: one or more strdup failed (OOM)\n");
+            debugf("[META] load_rom_meta_from_ini: one or more strdup failed (OOM)\n");
         }
+        return true;
     }
-    debugf("[META] load_rom_meta_from_file: complete\n");
-    path_free(rom_info_meta_path);
+    return false;
+}
+
+bool rom_info_load_database_meta (const char *storage_prefix, rom_info_t *rom_info) {
+    // homebrew IDs are not in the game code database
+    if ((rom_info->game_code[1] == 'E') && (rom_info->game_code[2] == 'D')) {
+        return false;
+    }
+
+    char gamecode_str[24];
+    snprintf(
+        gamecode_str,
+        sizeof(gamecode_str),
+        "%c/%c/%c/%c/metadata.ini",
+        rom_info->game_code[0], rom_info->game_code[1], rom_info->game_code[2], rom_info->game_code[3]
+    );
+
+    path_t *meta_path = path_init(storage_prefix, "menu/metadata");
+    path_push(meta_path, gamecode_str);
+    bool loaded = load_rom_meta_from_ini(path_get(meta_path), rom_info);
+    path_free(meta_path);
+
+    return loaded;
 }
 
 void rom_info_free_meta(rom_info_t *rom_info) {
@@ -1336,17 +1366,14 @@ rom_err_t rom_config_setting_set_patches (path_t *path, rom_info_t *rom_info, bo
 }
 #endif
 
-rom_err_t rom_config_load (path_t *path, rom_info_t *rom_info) {
+static rom_err_t load_rom_header (path_t *path, rom_header_t *rom_header, rom_info_t *rom_info) {
     FILE *f;
-    rom_header_t rom_header;
-    
-    debugf("[META] rom_config_load: starting for '%s'\\n", path_get(path));
 
     if ((f = fopen(path_get(path), "rb")) == NULL) {
         return ROM_ERR_NO_FILE;
     }
     setbuf(f, NULL);
-    if (fread(&rom_header, sizeof(rom_header), 1, f) != 1) {
+    if (fread(rom_header, sizeof(*rom_header), 1, f) != 1) {
         fclose(f);
         return ROM_ERR_LOAD_IO;
     }
@@ -1354,11 +1381,29 @@ rom_err_t rom_config_load (path_t *path, rom_info_t *rom_info) {
         return ROM_ERR_LOAD_IO;
     }
 
-    fix_rom_header_endianness(&rom_header, rom_info);
+    fix_rom_header_endianness(rom_header, rom_info);
 
-    match_t match = find_rom_in_database(&rom_header);
+    match_t match = find_rom_in_database(rom_header);
 
-    extract_rom_info(&match, &rom_header, rom_info);
+    extract_rom_info(&match, rom_header, rom_info);
+
+    return ROM_OK;
+}
+
+rom_err_t rom_info_load_header (path_t *path, rom_info_t *rom_info) {
+    rom_header_t rom_header;
+    return load_rom_header(path, &rom_header, rom_info);
+}
+
+rom_err_t rom_config_load (path_t *path, rom_info_t *rom_info) {
+    rom_header_t rom_header;
+    
+    debugf("[META] rom_config_load: starting for '%s'\\n", path_get(path));
+
+    rom_err_t err = load_rom_header(path, &rom_header, rom_info);
+    if (err != ROM_OK) {
+        return err;
+    }
     debugf("[META] rom_config_load: game_code='%c%c%c%c', CIC type=%d\\n", 
            rom_info->game_code[0], rom_info->game_code[1], rom_info->game_code[2], rom_info->game_code[3],
            rom_info->cic_type);

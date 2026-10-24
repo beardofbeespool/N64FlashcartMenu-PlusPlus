@@ -86,6 +86,10 @@ static void menu_init (boot_params_t *boot_params) {
     path_push(path, MENU_ROM_LOAD_HISTORY_FILE);
     bookkeeping_init(path_get(path));
     bookkeeping_load(&menu->bookkeeping);
+    menu->bookkeeping.favorites_alphabetical = menu->settings.favorites_alphabetical;
+    if (menu->bookkeeping.favorites_alphabetical) {
+        bookkeeping_favorites_sort(&menu->bookkeeping);
+    }
     menu->load.load_history_id = -1;
     menu->load.load_favorite_id = -1;
     path_pop(path);

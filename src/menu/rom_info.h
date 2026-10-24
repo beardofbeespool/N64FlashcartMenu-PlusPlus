@@ -197,6 +197,27 @@ bool rom_info_get_cic_seed(rom_info_t *rom_info, uint8_t *seed);
 rom_err_t rom_config_load(path_t *path, rom_info_t *rom_info);
 
 /**
+ * @brief Load only the ROM header and database info, without per-ROM config or metadata files.
+ *
+ * Much cheaper than rom_config_load(), which also looks for several files next to the ROM.
+ * Free the result with rom_info_free_meta().
+ *
+ * @param path Path to the ROM file
+ * @param rom_info Pointer to the ROM information structure
+ * @return rom_err_t Error code
+ */
+rom_err_t rom_info_load_header(path_t *path, rom_info_t *rom_info);
+
+/**
+ * @brief Load metadata for the ROM's game code from the menu/metadata database.
+ *
+ * @param storage_prefix Storage prefix, e.g. "sd:/"
+ * @param rom_info ROM information with the game code already loaded
+ * @return true if a metadata.ini was found and loaded
+ */
+bool rom_info_load_database_meta(const char *storage_prefix, rom_info_t *rom_info);
+
+/**
  * @brief Get the CIC type for the ROM.
  * 
  * @param rom_info Pointer to the ROM information structure

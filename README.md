@@ -19,7 +19,7 @@ This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodniko
 * **Autoload last game:** launching a game makes it the autoload target, so the console boots straight back into your last game. Hold `START` while powering on to get the menu instead.
 * **100 favorites and 100 history entries:** instead of 8 each.
 * **Split-view file list, Favorites and History:** a one-line-per-entry list on the left, and the selected entry's title, type, size or game details, and box art on the right.
-* **Reorder favorites:** pick a game up with `L`/`Z`, move it with Up/Down, drop it with `L`/`Z`.
+* **Favorites order:** new favorites go to the bottom of the list, and you can arrange them by hand (pick a game up with `L`/`Z`, move it with Up/Down, drop it with `L`/`Z`), or keep them sorted A-Z (*Menu Settings → Favorites Order*).
 * **Wrap-around lists:** Up at the top of the file list, Favorites or History jumps to the bottom, and Down at the bottom jumps to the top.
 * **Color themes:** Navy (default), Red, Purple, Green, Yellow, Teal, Pink or Classic Gray, chosen in *Menu Settings → Color Theme*. The selected row always gets a contrasting outline.
 * **Screen margin:** shrinks the whole picture inward so text stays clear of the screen edges and corners (*Menu Settings → Screen Margin*: Off, 5% (default), 10% or 15%).
@@ -43,6 +43,7 @@ This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodniko
 | Game info screen | D-pad `▲` or C-`▲` | Add to / remove from favorites |
 | Menu Settings | *Saves Root: Off* | Turn the saves root off again |
 | Menu Settings | *Color Theme* | Pick a color theme, applied immediately |
+| Menu Settings | *Favorites Order* | *Manual* (new favorites at the bottom, `L`/`Z` reorders) or *A-Z* (always sorted by file name) |
 | Menu Settings | *Screen Margin* | Move everything away from the screen edges, applied immediately |
 
 ### What changed
@@ -52,13 +53,15 @@ This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodniko
 * `src/menu/bookkeeping.h`: raised `FAVORITES_COUNT` and `HISTORY_COUNT` from 8 to 100.
 * `src/menu/ini_parser.c`: raised `INI_MAX_PAIRS` from 64 to 512. Each favorite uses 3 keys, so the old cap stopped saving after about 21 favorites.
 * `src/menu/bookkeeping.c`: empty history and favorite slots are no longer written to the history file, so its size follows the number of entries actually used. Existing files still load.
-* `src/menu/views/history_favorites.c`: the History and Favorites tabs are a split view. The left column is a scrolling one-line-per-game list (file names without extensions) with its scrollbar as the divider; the right panel shows the selected game's title, position in the list, release date, players, Expansion Pak and Rumble Pak info, and box art. The info and box art load after the selection rests for 10 frames, so scrolling stays fast. `START` launches the selected game, `L`/`Z` reorders favorites, and the lists wrap around.
+* `src/menu/views/history_favorites.c`: the History and Favorites tabs are a split view. The left column is a scrolling one-line-per-game list (file names without extensions) with its scrollbar as the divider; the right panel shows the selected game's title, position in the list, release date, players, Expansion Pak and Rumble Pak info, and box art. The info and box art load after the selection rests for half a second, so scrolling stays fast. `START` launches the selected game, `L`/`Z` reorders favorites, and the lists wrap around.
 * `src/menu/bookkeeping.c`: new `bookkeeping_favorite_swap()` for reordering. The new order is saved once, when the game is dropped.
 * `src/menu/settings.c`: `wrap_file_list_scrolling` now defaults to on. The settings schema revision is now 2, and older configs have wrap-around switched on once when first loaded.
 * `src/menu/ui_components/constants.h`, `src/menu/fonts.c`: new default color palette, and a lighter gray text color for readability on navy.
 * `src/menu/ui_components/common.c`: new `ui_components_highlight_draw()`, a filled row with an outline, used by the file list, Favorites/History, context menus and the cheat editor. New `ui_components_screen_margin_apply()`, which uses VI borders to shrink the picture (with resampling, so letters stay even).
 * `src/menu/ui_components/theme.c` (new), `constants.h`: the UI colors come from the active theme. `menu.c` applies the saved theme and screen margin at startup; `settings_editor.c` adds both options and re-applies the margin after a PAL60 change (which resets the video output).
-* `src/menu/ui_components/game_panel.c` (new): the info panel beside narrow lists, shared by the file list and Favorites/History. ROM info and box art load once the selection rests for 10 frames.
+* `src/menu/ui_components/game_panel.c` (new): the info panel beside narrow lists, shared by the file list and Favorites/History. Once the selection rests for half a second it loads in three small steps on consecutive frames (ROM header, metadata, then start the box art decode), so no single frame stalls.
+* `src/menu/rom_info.c`: new `rom_info_load_header()` and `rom_info_load_database_meta()` for the panel. `rom_config_load()` also looks for `<rom>.ini`, `<rom>.meta` and `<rom>.metadata.ini`, and each missing file means scanning the whole ROM folder, which made the menu stutter in large folders.
+* `src/menu/bookkeeping.c`: favorites are appended at the end instead of inserted at the top, a game that is already a favorite keeps its place, and adding to a full list is refused with a message instead of dropping a favorite. New `bookkeeping_favorites_sort()` for the A-Z order (`favorites_alphabetical` in `menu/config.ini`).
 * `src/menu/ui_components/file_list.c`, `src/menu/views/browser.c`: the file list draws as a narrow column without file sizes, with the panel showing the entry's type, size, position and favorite status, and full game details for N64 ROMs.
 * `scripts/install_boxart.py`, `scripts/match_saves.py` (new): PC helper scripts, see below.
 * `src/menu/actions.c`, `src/menu/menu_state.h`: new `favorite` action, triggered once per press of D-pad up or C-up (the analog stick is ignored so a nudge can't toggle it).
@@ -110,7 +113,8 @@ python3 scripts/match_saves.py --saves ~/old-card-backup --roms /run/media/$USER
 * If the autoload ROM is moved, renamed or deleted, hold `START` at power-on to get back to the menu.
 * The autoload target is stored in the `[autoload]` section of `menu/config.ini` on the SD card.
 * In the Favorites tab, Up/Down moves one entry and the fast-scroll button jumps 8. `R` removes the selected favorite.
-* When all 100 favorite slots are full, adding another drops the one at the bottom of the list. History drops its oldest entry the same way.
+* When all 100 favorite slots are full, adding another shows "Favorites are full" and changes nothing. History drops its oldest entry when full.
+* In A-Z order, games are sorted by file name, and `L`/`Z` in the Favorites tab does nothing. Switching from A-Z back to Manual keeps the sorted order as the starting point.
 * Box art in the panels needs the metadata pack in `menu/metadata/` (see `scripts/install_boxart.py`). Without it the panel shows the title and details only.
 * Inside a ZIP archive, and for folders, the panel shows the entry type and size only.
 * The screen margin uses the VI's resampling, which softens the picture very slightly. Set it to Off on displays where the edges are already clear.

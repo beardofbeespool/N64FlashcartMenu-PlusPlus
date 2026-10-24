@@ -5,6 +5,7 @@
  */
 
 #include <libdragon.h>
+#include <strings.h>
 #include "ini_parser.h"
 
 #include "bookkeeping.h"
@@ -274,15 +275,63 @@ void bookkeeping_history_add(bookkeeping_t *bookkeeping, path_t *primary_path, p
  * @param secondary_path Pointer to the secondary path.
  * @param type The type of the bookkeeping item.
  */
-void bookkeeping_favorite_add(bookkeeping_t *bookkeeping, path_t *primary_path, path_t *secondary_path, bookkeeping_item_types_t type) {
+bool bookkeeping_favorite_add(bookkeeping_t *bookkeeping, path_t *primary_path, path_t *secondary_path, bookkeeping_item_types_t type) {
     bookkeeping_item_t new_item = {
         .primary_path = primary_path,
         .secondary_path = secondary_path,
         .bookkeeping_type = type
     };
 
-    bookkeeping_insert_top(bookkeeping->favorite_items, FAVORITES_COUNT, &new_item);
+    if(bookkeeping_favorite_find(bookkeeping, primary_path, secondary_path, type) != -1) {
+        return true;
+    }
+
+    // the list is kept compacted, so the first empty slot is the end of the list
+    int slot = -1;
+    for(int i = 0; i < FAVORITES_COUNT; i++) {
+        if(bookkeeping->favorite_items[i].bookkeeping_type == BOOKKEEPING_TYPE_EMPTY) {
+            slot = i;
+            break;
+        }
+    }
+    if(slot == -1) {
+        return false;
+    }
+
+    bookkeeping_copy_item(&new_item, &bookkeeping->favorite_items[slot]);
+
+    if(bookkeeping->favorites_alphabetical) {
+        bookkeeping_favorites_sort(bookkeeping);
+    }
+
     bookkeeping_save(bookkeeping);
+    return true;
+}
+
+/**
+ * @brief Compare two favorites by file name, empty slots last.
+ */
+static int bookkeeping_compare_by_name(const void *a, const void *b) {
+    const bookkeeping_item_t *left = a;
+    const bookkeeping_item_t *right = b;
+    bool left_empty = (left->bookkeeping_type == BOOKKEEPING_TYPE_EMPTY) || !path_has_value(left->primary_path);
+    bool right_empty = (right->bookkeeping_type == BOOKKEEPING_TYPE_EMPTY) || !path_has_value(right->primary_path);
+
+    if(left_empty || right_empty) {
+        return (int)left_empty - (int)right_empty;
+    }
+
+    return strcasecmp(path_last_get(left->primary_path), path_last_get(right->primary_path));
+}
+
+/**
+ * @brief Sort the bookkeeping favorites by file name.
+ * 
+ * @param bookkeeping Pointer to the bookkeeping structure.
+ */
+void bookkeeping_favorites_sort(bookkeeping_t *bookkeeping) {
+    // items only hold pointers, so sorting the structs moves ownership without copying paths
+    qsort(bookkeeping->favorite_items, FAVORITES_COUNT, sizeof(bookkeeping_item_t), bookkeeping_compare_by_name);
 }
 
 /**

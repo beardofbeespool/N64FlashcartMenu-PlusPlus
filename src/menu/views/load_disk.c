@@ -40,7 +40,9 @@ static char *format_disk_region (disk_region_t region) {
 }
 
 static void add_favorite (menu_t *menu, void *arg) {
-    bookkeeping_favorite_add(&menu->bookkeeping, menu->load.disk_slots.primary.disk_path, menu->load.rom_path, BOOKKEEPING_TYPE_DISK);
+    if (!bookkeeping_favorite_add(&menu->bookkeeping, menu->load.disk_slots.primary.disk_path, menu->load.rom_path, BOOKKEEPING_TYPE_DISK)) {
+        menu_show_error(menu, "Favorites are full.\nRemove one to add another.");
+    }
 }
 
 static component_context_menu_t options_context_menu = { .list = {

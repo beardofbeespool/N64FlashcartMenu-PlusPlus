@@ -30,6 +30,7 @@ typedef struct {
 typedef struct {
     bookkeeping_item_t history_items[HISTORY_COUNT]; /**< History items */
     bookkeeping_item_t favorite_items[FAVORITES_COUNT]; /**< Favorite items */
+    bool favorites_alphabetical; /**< Keep favorites sorted by name (from the menu settings, not saved in the history file) */
 } bookkeeping_t;
 
 /**
@@ -64,14 +65,26 @@ void bookkeeping_save(bookkeeping_t *history);
 void bookkeeping_history_add(bookkeeping_t *bookkeeping, path_t *primary_path, path_t *secondary_path, bookkeeping_item_types_t type);
 
 /**
- * @brief Add a ROM to the favorites.
+ * @brief Add a ROM to the end of the favorites, or in name order when favorites_alphabetical is set.
+ * 
+ * A ROM that is already a favorite keeps its place.
  * 
  * @param bookkeeping The bookkeeping structure.
  * @param primary_path The primary path of the ROM.
  * @param secondary_path The secondary path of the ROM.
  * @param type The type of the bookkeeping item.
+ * @return false if the favorites are full.
  */
-void bookkeeping_favorite_add(bookkeeping_t *bookkeeping, path_t *primary_path, path_t *secondary_path, bookkeeping_item_types_t type);
+bool bookkeeping_favorite_add(bookkeeping_t *bookkeeping, path_t *primary_path, path_t *secondary_path, bookkeeping_item_types_t type);
+
+/**
+ * @brief Sort the favorites by file name, ignoring case.
+ * 
+ * The change is not saved, call bookkeeping_save() afterwards.
+ * 
+ * @param bookkeeping The bookkeeping structure.
+ */
+void bookkeeping_favorites_sort(bookkeeping_t *bookkeeping);
 
 /**
  * @brief Remove a ROM from the favorites.

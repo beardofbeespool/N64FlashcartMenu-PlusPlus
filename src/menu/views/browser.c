@@ -310,14 +310,17 @@ static void toggle_entry_favorite (menu_t *menu, entry_t *entry) {
 
     if (favorite_id != -1) {
         bookkeeping_favorite_remove(&menu->bookkeeping, favorite_id);
+        entry->favorite = false;
     } else {
         path_t *path = path_clone_push(menu->browser.directory, entry->name);
-        bookkeeping_favorite_add(&menu->bookkeeping, path, NULL, BOOKKEEPING_TYPE_ROM);
+        bool added = bookkeeping_favorite_add(&menu->bookkeeping, path, NULL, BOOKKEEPING_TYPE_ROM);
         path_free(path);
+        if (!added) {
+            menu_show_error(menu, "Favorites are full.\nRemove one to add another.");
+            return;
+        }
+        entry->favorite = true;
     }
-
-    // Adding to a full list drops the oldest favorite, which may be another entry in this directory
-    refresh_favorites(menu);
 }
 
 static bool load_directory (menu_t *menu) {
@@ -824,6 +827,7 @@ static void draw_panel (menu_t *menu) {
 
 static void panel_update (menu_t *menu) {
     ui_components_game_panel_select(menu->browser.entry ? menu->browser.selected : -1);
+    ui_components_game_panel_poll(menu);
 
     if (ui_components_game_panel_load_due() && menu->browser.entry && !menu->browser.archive && (menu->browser.entry->type == ENTRY_TYPE_ROM)) {
         path_t *path = path_clone_push(menu->browser.directory, menu->browser.entry->name);

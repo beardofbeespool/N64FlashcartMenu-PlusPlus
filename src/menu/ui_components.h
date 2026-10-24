@@ -137,12 +137,21 @@ void ui_components_game_panel_select(int id);
 bool ui_components_game_panel_load_due(void);
 
 /**
- * @brief Load ROM info and box art for the selected item.
+ * @brief Start loading ROM info and box art for the selected item (reads the ROM header).
  * 
  * @param menu Pointer to the menu structure.
  * @param rom_path Path to the N64 ROM.
  */
 void ui_components_game_panel_load(menu_t *menu, path_t *rom_path);
+
+/**
+ * @brief Continue loading the selected item's info, one small step per call.
+ * 
+ * Call every frame after ui_components_game_panel_load().
+ * 
+ * @param menu Pointer to the menu structure.
+ */
+void ui_components_game_panel_poll(menu_t *menu);
 
 /**
  * @brief Draw the game panel to the right of a narrow list.

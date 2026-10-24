@@ -10,12 +10,17 @@
 #include "../fonts.h"
 #include "constants.h"
 
-/** @brief Frames the selection must rest on an item before its info and box art load. */
-#define LOAD_DELAY (10)
+/** @brief Frames (at 30 fps) the selection must rest on an item before its info and box art load. */
+#define LOAD_DELAY (15)
 
+/**
+ * Loading is split into one small step per frame, so no single frame stalls
+ * long enough to make the next button press feel late.
+ */
 typedef enum {
     PANEL_STATE_EMPTY,
-    PANEL_STATE_PENDING,
+    PANEL_STATE_LOAD_META,      /**< Header loaded, metadata next */
+    PANEL_STATE_LOAD_BOXART,    /**< Metadata loaded, box art next */
     PANEL_STATE_LOADED,
     PANEL_STATE_FAILED,
 } panel_state_t;
@@ -23,6 +28,8 @@ typedef enum {
 static int selected_id = -1;
 static int load_delay = 0;
 static panel_state_t state = PANEL_STATE_EMPTY;
+static bool info_valid = false;
+static bool meta_loaded = false;
 static rom_info_t info;
 static component_boxart_t *boxart = NULL;
 
@@ -32,9 +39,11 @@ static void unload (void) {
         ui_components_boxart_free(boxart);
         boxart = NULL;
     }
-    if (state == PANEL_STATE_LOADED) {
+    if (info_valid) {
         rom_info_free_meta(&info);
+        info_valid = false;
     }
+    meta_loaded = false;
     state = PANEL_STATE_EMPTY;
 }
 
@@ -69,29 +78,47 @@ bool ui_components_game_panel_load_due (void) {
 void ui_components_game_panel_load (menu_t *menu, path_t *rom_path) {
     unload();
 
+    // only the header here, not rom_config_load(): that also looks for several optional
+    // files next to the ROM, and each missing one means scanning the whole ROM folder
     memset(&info, 0, sizeof(info));
-    if (rom_config_load(rom_path, &info) != ROM_OK) {
+    if (rom_info_load_header(rom_path, &info) != ROM_OK) {
         rom_info_free_meta(&info);
         state = PANEL_STATE_FAILED;
         return;
     }
 
-    state = PANEL_STATE_LOADED;
-    boxart = ui_components_boxart_init(menu->storage_prefix, info.game_code, info.title, IMAGE_BOXART_FRONT);
+    info_valid = true;
+    state = PANEL_STATE_LOAD_META;
+}
+
+void ui_components_game_panel_poll (menu_t *menu) {
+    switch (state) {
+        case PANEL_STATE_LOAD_META:
+            meta_loaded = rom_info_load_database_meta(menu->storage_prefix, &info);
+            state = PANEL_STATE_LOAD_BOXART;
+            break;
+        case PANEL_STATE_LOAD_BOXART:
+            // the image itself decodes in the background, see png_decoder_poll()
+            boxart = ui_components_boxart_init(menu->storage_prefix, info.game_code, info.title, IMAGE_BOXART_FRONT);
+            state = PANEL_STATE_LOADED;
+            break;
+        default:
+            break;
+    }
 }
 
 void ui_components_game_panel_draw (const char *name, const char *subtitle, const char *details) {
     char rom_details[512];
     rom_details[0] = '\0';
 
-    if (state == PANEL_STATE_LOADED) {
-        if (info.meta.name != NULL && info.meta.name[0] != '\0') {
+    if (info_valid) {
+        if (meta_loaded && info.meta.name != NULL && info.meta.name[0] != '\0') {
             name = info.meta.name;
         }
-        if (info.meta.release_date != NULL && info.meta.release_date[0] != '\0') {
+        if (meta_loaded && info.meta.release_date != NULL && info.meta.release_date[0] != '\0' && strcmp(info.meta.release_date, "Not specified") != 0) {
             snprintf(rom_details + strlen(rom_details), sizeof(rom_details) - strlen(rom_details), "Released: %s\n", info.meta.release_date);
         }
-        if (info.meta.num_players > 0) {
+        if (meta_loaded && info.meta.num_players > 0) {
             snprintf(rom_details + strlen(rom_details), sizeof(rom_details) - strlen(rom_details), "Players: %lu\n", info.meta.num_players);
         }
         const char *expansion_pak = format_expansion_pak(info.features.expansion_pak);
