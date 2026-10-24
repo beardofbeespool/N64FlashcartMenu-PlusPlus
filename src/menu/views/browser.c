@@ -834,6 +834,18 @@ static void panel_update (menu_t *menu) {
         ui_components_game_panel_load(menu, path);
         path_free(path);
     }
+
+    // preload the games around the selection, so moving to them is instant
+    int offset = ui_components_game_panel_prefetch_offset();
+    if ((offset != 0) && menu->browser.entry && !menu->browser.archive) {
+        int32_t entries = menu->browser.entries;
+        entry_t *neighbour = &menu->browser.list[((menu->browser.selected + offset) % entries + entries) % entries];
+        if (neighbour->type == ENTRY_TYPE_ROM) {
+            path_t *path = path_clone_push(menu->browser.directory, neighbour->name);
+            ui_components_game_panel_prefetch(menu, path);
+            path_free(path);
+        }
+    }
 }
 
 static void draw (menu_t *menu, surface_t *d) {

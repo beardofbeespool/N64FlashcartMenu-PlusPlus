@@ -333,6 +333,16 @@ static void panel_update(menu_t *menu) {
     if(ui_components_game_panel_load_due() && selected_item != -1 && item_list[selected_item].bookkeeping_type == BOOKKEEPING_TYPE_ROM) {
         ui_components_game_panel_load(menu, item_list[selected_item].primary_path);
     }
+
+    // preload the games around the selection, so moving to them is instant
+    int offset = ui_components_game_panel_prefetch_offset();
+    int count = item_count();
+    if(offset != 0 && selected_item != -1 && count > 0) {
+        bookkeeping_item_t *neighbour = &item_list[((selected_item + offset) % count + count) % count];
+        if(neighbour->bookkeeping_type == BOOKKEEPING_TYPE_ROM) {
+            ui_components_game_panel_prefetch(menu, neighbour->primary_path);
+        }
+    }
 }
 
 static void draw(menu_t *menu, surface_t *display) {

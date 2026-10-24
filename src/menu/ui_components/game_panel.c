@@ -10,25 +10,26 @@
 #include "../fonts.h"
 #include "constants.h"
 
-/** @brief Frames (at 30 fps) the selection must rest on an item before its info and box art load. */
-#define LOAD_DELAY (10)
+/** @brief Frames the selection must rest on an item before it is read from the SD card. */
+#define LOAD_DELAY (3)
 
 /** @brief Recently shown games kept in memory, so going back to one is instant. */
-#define CACHE_SIZE_EXPANDED (12)
+#define CACHE_SIZE_EXPANDED (16)
 /** @brief Cache size without an Expansion Pak, each cover takes about 35 KB. */
 #define CACHE_SIZE_BASIC (3)
 
+/** @brief Neighbours of the selected game preloaded in the background (next, previous, next but one...). */
+#define PREFETCH_EXPANDED (4)
+#define PREFETCH_BASIC (1)
+
 /**
- * Loading is split into one small step per frame, so no single frame stalls
+ * Loading is split into steps run from the poll, so no single frame stalls
  * long enough to make the next button press feel late.
  */
 typedef enum {
-    PANEL_STATE_EMPTY,
-    PANEL_STATE_LOAD_META,      /**< Header loaded, metadata next */
+    PANEL_STATE_LOAD_META = 1,  /**< Header loaded, metadata next */
     PANEL_STATE_LOAD_BOXART,    /**< Metadata loaded, box art next */
-    PANEL_STATE_WAIT_BOXART,    /**< Box art decoding in the background */
     PANEL_STATE_LOADED,
-    PANEL_STATE_FAILED,
 } panel_state_t;
 
 typedef struct {
@@ -45,9 +46,13 @@ static cache_entry_t cache[CACHE_SIZE_EXPANDED];
 static uint32_t use_counter = 0;
 
 static int selected_id = -1;
+static bool lookup_due = false;
 static int load_delay = 0;
-static panel_state_t state = PANEL_STATE_EMPTY;
+static bool failed = false;
 static int current = -1;
+static int prefetch_slot = -1;
+static int prefetch_count = 0;
+static int loading_slot = -1;
 static component_boxart_t *loading_boxart = NULL;
 
 
@@ -89,14 +94,74 @@ static int cache_allocate (void) {
         }
     }
 
+    if (slot == prefetch_slot) {
+        prefetch_slot = -1;
+    }
     cache_entry_clear(&cache[slot]);
     return slot;
 }
 
 static void stop_loading (void) {
+    // the entry stays at PANEL_STATE_LOAD_BOXART, so its box art is loaded again later
     if (loading_boxart) {
         ui_components_boxart_free(loading_boxart);
         loading_boxart = NULL;
+    }
+    loading_slot = -1;
+}
+
+static int cache_add (path_t *rom_path) {
+    // the decoder may still be working for the entry that gets replaced
+    stop_loading();
+
+    int slot = cache_allocate();
+    cache_entry_t *entry = &cache[slot];
+
+    // only the header here, not rom_config_load(): that also looks for several optional
+    // files next to the ROM, and each missing one means scanning the whole ROM folder
+    if (rom_info_load_header(rom_path, &entry->info) != ROM_OK) {
+        rom_info_free_meta(&entry->info);
+        memset(entry, 0, sizeof(*entry));
+        return -1;
+    }
+
+    entry->used = true;
+    snprintf(entry->path, sizeof(entry->path), "%s", path_get(rom_path));
+    entry->last_used = ++use_counter;
+    entry->stage = PANEL_STATE_LOAD_META;
+    return slot;
+}
+
+static void cache_entry_load (menu_t *menu, int slot) {
+    cache_entry_t *entry = &cache[slot];
+
+    if (entry->stage == PANEL_STATE_LOAD_META) {
+        entry->meta_loaded = rom_info_load_database_meta(menu->storage_prefix, &entry->info);
+        entry->stage = PANEL_STATE_LOAD_BOXART;
+    }
+
+    if (entry->stage != PANEL_STATE_LOAD_BOXART) {
+        return;
+    }
+
+    if (loading_boxart == NULL) {
+        // a cover seen before loads straight from its cache file, a new one
+        // decodes in the background, see png_decoder_poll()
+        loading_boxart = ui_components_boxart_init(menu->storage_prefix, entry->info.game_code, entry->info.title, IMAGE_BOXART_FRONT);
+        if (loading_boxart == NULL) {
+            // no box art for this game
+            entry->stage = PANEL_STATE_LOADED;
+            return;
+        }
+        loading_slot = slot;
+    }
+
+    if (!loading_boxart->loading) {
+        // keep the decoded image in the cache, the component no longer owns it
+        entry->image = loading_boxart->image;
+        loading_boxart->image = NULL;
+        stop_loading();
+        entry->stage = PANEL_STATE_LOADED;
     }
 }
 
@@ -115,88 +180,109 @@ void ui_components_game_panel_select (int id) {
         return;
     }
 
-    stop_loading();
+    // a cover still decoding carries on, it is only stopped once the decoder is needed elsewhere
     current = -1;
-    state = PANEL_STATE_EMPTY;
+    failed = false;
     selected_id = id;
+    lookup_due = true;
     load_delay = LOAD_DELAY;
+    prefetch_slot = -1;
+    prefetch_count = 0;
 }
 
 bool ui_components_game_panel_load_due (void) {
-    if ((selected_id == -1) || (load_delay == 0)) {
+    if (selected_id == -1) {
         return false;
     }
 
-    return (--load_delay == 0);
+    // straight away, a game already in the cache is shown without waiting
+    if (lookup_due) {
+        lookup_due = false;
+        return true;
+    }
+
+    if ((load_delay == 0) || (--load_delay > 0)) {
+        return false;
+    }
+
+    return (current == -1);
 }
 
 void ui_components_game_panel_load (menu_t *menu, path_t *rom_path) {
-    stop_loading();
-
     int slot = cache_find(path_get(rom_path));
     if (slot != -1) {
         current = slot;
         cache[slot].last_used = ++use_counter;
         // carries on where it stopped if the selection moved away mid-load
-        state = cache[slot].stage;
         return;
     }
 
-    slot = cache_allocate();
-    cache_entry_t *entry = &cache[slot];
-
-    // only the header here, not rom_config_load(): that also looks for several optional
-    // files next to the ROM, and each missing one means scanning the whole ROM folder
-    if (rom_info_load_header(rom_path, &entry->info) != ROM_OK) {
-        rom_info_free_meta(&entry->info);
-        memset(entry, 0, sizeof(*entry));
-        current = -1;
-        state = PANEL_STATE_FAILED;
+    if (load_delay > 0) {
+        // not in the cache, read it once the selection has rested
         return;
     }
 
-    entry->used = true;
-    snprintf(entry->path, sizeof(entry->path), "%s", path_get(rom_path));
-    entry->last_used = ++use_counter;
-    entry->stage = PANEL_STATE_LOAD_META;
-    current = slot;
-    state = PANEL_STATE_LOAD_META;
+    current = cache_add(rom_path);
+    failed = (current == -1);
 }
 
 void ui_components_game_panel_poll (menu_t *menu) {
-    if (current == -1) {
+    // a cover that finished decoding after the selection moved on is still kept
+    if ((loading_boxart != NULL) && !loading_boxart->loading) {
+        cache_entry_load(menu, loading_slot);
+    }
+
+    int slot = -1;
+
+    if ((current != -1) && (cache[current].stage != PANEL_STATE_LOADED)) {
+        slot = current;
+    } else if ((prefetch_slot != -1) && (cache[prefetch_slot].stage != PANEL_STATE_LOADED)) {
+        slot = prefetch_slot;
+    }
+
+    if (slot == -1) {
         return;
     }
 
-    cache_entry_t *entry = &cache[current];
-
-    switch (state) {
-        case PANEL_STATE_LOAD_META:
-            entry->meta_loaded = rom_info_load_database_meta(menu->storage_prefix, &entry->info);
-            entry->stage = state = PANEL_STATE_LOAD_BOXART;
-            break;
-        case PANEL_STATE_LOAD_BOXART:
-            // the image itself decodes in the background, see png_decoder_poll()
-            loading_boxart = ui_components_boxart_init(menu->storage_prefix, entry->info.game_code, entry->info.title, IMAGE_BOXART_FRONT);
-            if (loading_boxart == NULL) {
-                // no box art for this game
-                entry->stage = state = PANEL_STATE_LOADED;
-            } else {
-                state = PANEL_STATE_WAIT_BOXART;
-            }
-            break;
-        case PANEL_STATE_WAIT_BOXART:
-            if (!loading_boxart->loading) {
-                // keep the decoded image in the cache, the component no longer owns it
-                entry->image = loading_boxart->image;
-                loading_boxart->image = NULL;
-                stop_loading();
-                entry->stage = state = PANEL_STATE_LOADED;
-            }
-            break;
-        default:
-            break;
+    // the selected game goes first, before a neighbour still being preloaded
+    if ((loading_slot != -1) && (loading_slot != slot)) {
+        stop_loading();
     }
+
+    cache_entry_load(menu, slot);
+}
+
+int ui_components_game_panel_prefetch_offset (void) {
+    int prefetch_max = is_memory_expanded() ? PREFETCH_EXPANDED : PREFETCH_BASIC;
+
+    if ((selected_id == -1) || (load_delay > 0) || (prefetch_count >= prefetch_max)) {
+        return 0;
+    }
+    // only once the selected game is fully shown, and one neighbour at a time
+    if ((current != -1) && (cache[current].stage != PANEL_STATE_LOADED)) {
+        return 0;
+    }
+    if ((prefetch_slot != -1) && (cache[prefetch_slot].stage != PANEL_STATE_LOADED)) {
+        return 0;
+    }
+
+    int i = prefetch_count++;
+    int distance = (i / 2) + 1;
+    return (i % 2 == 0) ? distance : -distance;
+}
+
+void ui_components_game_panel_prefetch (menu_t *menu, path_t *rom_path) {
+    int slot = cache_find(path_get(rom_path));
+    if (slot == -1) {
+        slot = cache_add(rom_path);
+        if (slot == -1) {
+            return;
+        }
+    }
+
+    // recently used, so it is still cached when the selection gets there
+    cache[slot].last_used = ++use_counter;
+    prefetch_slot = slot;
 }
 
 void ui_components_game_panel_draw (const char *name, const char *subtitle, const char *details) {
@@ -226,7 +312,7 @@ void ui_components_game_panel_draw (const char *name, const char *subtitle, cons
             snprintf(rom_details + strlen(rom_details), sizeof(rom_details) - strlen(rom_details), "Rumble Pak\n");
         }
         details = rom_details;
-    } else if (state == PANEL_STATE_FAILED) {
+    } else if (failed) {
         details = "Unable to read this ROM.\nIt may have been moved or deleted.";
     }
 
@@ -255,7 +341,7 @@ void ui_components_game_panel_draw (const char *name, const char *subtitle, cons
     if (entry && entry->image) {
         component_boxart_t cached = { .loading = false, .image = entry->image };
         ui_components_boxart_draw(&cached);
-    } else if (loading_boxart != NULL) {
+    } else if ((loading_boxart != NULL) && (loading_slot == current)) {
         // placeholder box while the image decodes
         ui_components_boxart_draw(loading_boxart);
     }
@@ -265,7 +351,10 @@ void ui_components_game_panel_free (void) {
     // the cache is kept, so coming back to a list shows recent games straight away
     stop_loading();
     current = -1;
-    state = PANEL_STATE_EMPTY;
+    failed = false;
     selected_id = -1;
+    lookup_due = false;
     load_delay = 0;
+    prefetch_slot = -1;
+    prefetch_count = 0;
 }

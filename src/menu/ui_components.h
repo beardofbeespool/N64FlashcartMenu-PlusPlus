@@ -154,6 +154,24 @@ void ui_components_game_panel_load(menu_t *menu, path_t *rom_path);
 void ui_components_game_panel_poll(menu_t *menu);
 
 /**
+ * @brief Ask which neighbour of the selected item should be preloaded next.
+ * 
+ * Once the selected game is shown, the games around it are loaded into the panel's
+ * cache in the background, so moving to them shows their info and box art at once.
+ * 
+ * @return Offset from the selected item (1 = next, -1 = previous, 2, -2...), or 0 when nothing is due.
+ */
+int ui_components_game_panel_prefetch_offset(void);
+
+/**
+ * @brief Preload a game into the panel's cache, see ui_components_game_panel_prefetch_offset().
+ * 
+ * @param menu Pointer to the menu structure.
+ * @param rom_path Path to the N64 ROM.
+ */
+void ui_components_game_panel_prefetch(menu_t *menu, path_t *rom_path);
+
+/**
  * @brief Draw the game panel to the right of a narrow list.
  * 
  * @param name Name of the selected item, replaced by the game's release name when known.
@@ -398,6 +416,8 @@ void ui_components_context_menu_draw(component_context_menu_t *cm);
 typedef struct {
     bool loading; /**< Flag to indicate if the box art is loading */
     surface_t *image; /**< Pointer to the box art image */
+    char *cache_path; /**< Where the decoded image is saved once decoding finishes, NULL if not needed */
+    uint32_t png_size; /**< Size of the source PNG, stored in the cache to notice a replaced image */
 } component_boxart_t;
 
 /**
