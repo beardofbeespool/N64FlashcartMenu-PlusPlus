@@ -80,6 +80,11 @@ void bookkeeping_load (bookkeeping_t *history) {
 static void bookkeeping_ini_save_list(bookkeeping_item_t *list, uint16_t count, ini_t *ini, const char *group) {
     char buf[64];
     for(uint16_t i = 0; i < count; i++) {
+        // empty slots load back as empty by default, so don't bloat the file with them
+        if(list[i].bookkeeping_type == BOOKKEEPING_TYPE_EMPTY) {
+            continue;
+        }
+
         snprintf(buf, sizeof(buf), "%d_primary_path", i);
         path_t* path = list[i].primary_path;
         ini_set_string(ini, group, buf, path != NULL ? path_get(path) : "");   

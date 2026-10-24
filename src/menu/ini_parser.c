@@ -17,7 +17,7 @@
 
 
 /** @brief Maximum number of key-value pairs (logical cap, not pre-allocated) */
-#define INI_MAX_PAIRS 64
+#define INI_MAX_PAIRS 512
 
 /** @brief Maximum number of sections (logical cap, not pre-allocated) */
 #define INI_MAX_SECTIONS 8

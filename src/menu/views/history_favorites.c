@@ -6,6 +6,8 @@
 #include "views.h"
 
 
+#define VISIBLE_ITEMS (8) /**< Number of two-line items that fit on screen */
+
 typedef enum {
     BOOKKEEPING_TAB_CONTEXT_HISTORY,
     BOOKKEEPING_TAB_CONTEXT_FAVORITE,
@@ -30,7 +32,7 @@ static void item_reset_selected(menu_t *menu) {
     }  
 }
 
-static void item_move_next() {
+static bool item_move_next() {
     int last = selected_item;
 
     do
@@ -39,15 +41,14 @@ static void item_move_next() {
 
         if(selected_item >= item_max) {
             selected_item = last;
-            break;
+            return false;
         } else if(item_list[selected_item].bookkeeping_type != BOOKKEEPING_TYPE_EMPTY) {
-            sound_play_effect(SFX_CURSOR);
-            break;
+            return true;
         }
     } while (true);  
 }
 
-static void item_move_previous() {
+static bool item_move_previous() {
     int last = selected_item;
     do
     {
@@ -55,19 +56,45 @@ static void item_move_previous() {
 
         if(selected_item < 0) {
             selected_item = last;
-            break;
+            return false;
         } else if(item_list[selected_item].bookkeeping_type != BOOKKEEPING_TYPE_EMPTY) {
-            sound_play_effect(SFX_CURSOR);
-            break;
+            return true;
         }
     } while (true);
 }
 
+static void item_move(bool forward, int steps) {
+    bool moved = false;
+
+    for(int i = 0; i < steps; i++) {
+        if(!(forward ? item_move_next() : item_move_previous())) {
+            break;
+        }
+        moved = true;
+    }
+
+    if(moved) {
+        sound_play_effect(SFX_CURSOR);
+    }
+}
+
+static int item_count() {
+    // lists are kept compacted, so the last populated slot marks the end
+    for(int i = item_max - 1; i >= 0; i--) {
+        if(item_list[i].bookkeeping_type != BOOKKEEPING_TYPE_EMPTY) {
+            return i + 1;
+        }
+    }
+    return 0;
+}
+
 static void process(menu_t *menu) {
+    int scroll_speed = menu->actions.go_fast ? VISIBLE_ITEMS : 1;
+
     if(menu->actions.go_down) {
-        item_move_next();   
+        item_move(true, scroll_speed);
     } else if(menu->actions.go_up) {
-        item_move_previous();
+        item_move(false, scroll_speed);
     } else if(menu->actions.enter && selected_item != -1) {
                 
         if(tab_context == BOOKKEEPING_TAB_CONTEXT_FAVORITE) {
@@ -107,13 +134,25 @@ static void process(menu_t *menu) {
 }
 
 static void draw_list(menu_t *menu, surface_t *display) {
+    int entries = item_count();
+    int starting_position = 0;
+
+    if (entries > VISIBLE_ITEMS && selected_item >= (VISIBLE_ITEMS / 2)) {
+        starting_position = selected_item - (VISIBLE_ITEMS / 2);
+        if (starting_position >= entries - VISIBLE_ITEMS) {
+            starting_position = entries - VISIBLE_ITEMS;
+        }
+    }
+
+    ui_components_list_scrollbar_draw(selected_item, entries, VISIBLE_ITEMS);
+
     if(selected_item != -1) {
-        float highlight_y = VISIBLE_AREA_Y0 + TEXT_MARGIN_VERTICAL + TAB_HEIGHT +  TEXT_OFFSET_VERTICAL + (selected_item * 19 * 2);
+        float highlight_y = VISIBLE_AREA_Y0 + TEXT_MARGIN_VERTICAL + TAB_HEIGHT +  TEXT_OFFSET_VERTICAL + ((selected_item - starting_position) * 19 * 2);
 
         ui_components_box_draw(
             VISIBLE_AREA_X0,
             highlight_y,
-            VISIBLE_AREA_X0 + FILE_LIST_HIGHLIGHT_WIDTH + LIST_SCROLLBAR_WIDTH,
+            VISIBLE_AREA_X0 + FILE_LIST_HIGHLIGHT_WIDTH,
             highlight_y + 39,
             FILE_LIST_HIGHLIGHT_COLOR
         );
@@ -122,7 +161,12 @@ static void draw_list(menu_t *menu, surface_t *display) {
     char buffer[1024];
     buffer[0] = 0;
 
-    for(uint16_t i=0; i < item_max; i++) {   
+    int ending_position = starting_position + VISIBLE_ITEMS;
+    if(ending_position > item_max) {
+        ending_position = item_max;
+    }
+
+    for(int i = starting_position; i < ending_position; i++) {   
         if(path_has_value(item_list[i].primary_path)) {
             snprintf(buffer + strlen(buffer), sizeof(buffer) - strlen(buffer), "%d  : %s\n", (i+1), path_last_get(item_list[i].primary_path));
         } else {
