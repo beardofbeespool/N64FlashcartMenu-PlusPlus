@@ -89,11 +89,16 @@ python3 scripts/install_boxart.py /run/media/$USER/SC64              # everythin
 python3 scripts/install_boxart.py /run/media/$USER/SC64 --only-mine  # only N64 games found on the card
 ```
 
-**Saves:** `scripts/match_saves.py` works out which ROM each old save belongs to, from the file name, the title inside the ROM header, region tags and the save size the game uses, then copies it to `<rom folder>/saves/<rom name>.sav`. It only shows the plan until you add `--apply`. Originals are never changed, and existing saves are only replaced with `--overwrite` (keeping a `.bak`).
+**Saves:** `scripts/match_saves.py` works out which ROM each save belongs to, from the file name, the title inside the ROM header, region tags and the save size the game uses, and gives it the name the menu expects, `<rom folder>/saves/<rom name>.sav`. It only shows the plan until you add `--apply`.
 ```
-python3 scripts/match_saves.py --saves ~/old-card-backup --roms /run/media/$USER/SC64/n64
+# saves already in n64/saves: rename them in place
+python3 scripts/match_saves.py /run/media/$USER/SC64/n64
+python3 scripts/match_saves.py /run/media/$USER/SC64/n64 --apply
+# saves somewhere else: copy them in
 python3 scripts/match_saves.py --saves ~/old-card-backup --roms /run/media/$USER/SC64/n64 --apply
 ```
+* Saves already in the right folder are renamed, and each rename is logged to `saves/rename_log.txt`. If the data has to change, the original is kept beside it as `<name>.orig`. Saves that already have the right name are left alone.
+* Saves from another folder are copied, never modified. Existing saves are only replaced with `--overwrite` (keeping a `.bak`).
 * EEPROM saves of the wrong size (512 vs 2048 bytes) are trimmed or padded, and EEPROM data is taken out of combined Mupen64Plus/RetroArch `.srm` files.
 * SRAM/FlashRAM inside a combined `.srm`, and other size mismatches, are skipped with a reason. Use a tool such as [N64SaveConverter](https://github.com/Ninjiteu/N64SaveConverter) for those.
 * `--swap-words` byte-swaps SRAM/FlashRAM saves from Project64 (`.sra`/`.fla`).

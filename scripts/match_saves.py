@@ -7,15 +7,21 @@ your current ROM files. This script works out which ROM each save belongs to by
 comparing names (file name and the title inside the ROM header), region tags,
 and the save size the game is known to use.
 
-Nothing is changed unless you pass --apply. Original saves are never modified,
-they are copied, and existing saves are never overwritten unless you pass
+Nothing is changed unless you pass --apply. Saves from other folders are copied,
+never modified, and existing saves are never overwritten unless you pass
 --overwrite (the old file is then kept as .bak).
 
 Examples:
-    # show what would happen
-    python3 match_saves.py --saves ~/old-card/saves --roms /run/media/$USER/SC64/n64
-    # do it
+    # saves already in <rom folder>/saves: rename them in place
+    python3 match_saves.py /run/media/$USER/SC64/n64
+    python3 match_saves.py /run/media/$USER/SC64/n64 --apply
+    # saves somewhere else: copy them into <rom folder>/saves
     python3 match_saves.py --saves ~/old-card/saves --roms /run/media/$USER/SC64/n64 --apply
+
+Saves that are already in their destination folder are renamed, not copied, and
+every rename is logged to rename_log.txt in that folder so it can be undone. If
+the data has to change (for example an EEPROM save of the wrong size), the
+original is kept next to it with an extra .orig extension.
 
 Only uses the Python standard library, so it runs on Linux, Windows and macOS.
 """
@@ -244,10 +250,11 @@ def find_files(folder, extensions, skip=()):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Match old N64 saves to ROMs and copy them with matching names.")
-    parser.add_argument("--saves", type=Path, required=True, help="folder with the old save files (searched recursively)")
-    parser.add_argument("--roms", type=Path, required=True, help="folder with your N64 ROMs (searched recursively)")
-    parser.add_argument("--apply", action="store_true", help="copy the matched saves (default: only show the plan)")
+    parser = argparse.ArgumentParser(description="Match old N64 saves to ROMs and give them matching names.")
+    parser.add_argument("folder", type=Path, nargs="?", help="ROM folder whose saves are in its saves subfolder, e.g. /run/media/$USER/SC64/n64")
+    parser.add_argument("--saves", type=Path, help="folder with the old save files, searched recursively (default: <folder>/saves)")
+    parser.add_argument("--roms", type=Path, help="folder with your N64 ROMs, searched recursively (default: <folder>)")
+    parser.add_argument("--apply", action="store_true", help="rename or copy the matched saves (default: only show the plan)")
     parser.add_argument("--min-score", type=float, default=0.6, help="lowest match score to accept (default 0.6)")
     parser.add_argument("--overwrite", action="store_true", help="replace saves that already exist, keeping a .bak copy")
     parser.add_argument("--next-to-rom", action="store_true", help="put saves next to the ROM instead of in a saves folder")
@@ -258,6 +265,11 @@ def main():
 
     if args.saves_root and not args.sd_root:
         sys.exit("--saves-root needs --sd-root")
+    if args.folder:
+        args.roms = args.roms or args.folder
+        args.saves = args.saves or (args.folder / "saves")
+    if not args.roms or not args.saves:
+        parser.error("give a ROM folder, or both --saves and --roms")
 
     roms = [Rom(p) for p in find_files(args.roms.expanduser(), ROM_EXTENSIONS, skip=("saves",))]
     saves = [Save(p) for p in find_files(args.saves.expanduser(), SAVE_EXTENSIONS)]
@@ -283,11 +295,16 @@ def main():
         used_saves.add(id(s))
         used_roms.add(id(r))
 
-    copied = skipped = 0
+    changed = skipped = already = 0
     for value, s, r, note in sorted(matched, key=lambda m: m[1].path.name.lower()):
         destination = destination_for(r, args)
+        if s.path.resolve() == destination.resolve():
+            already += 1
+            continue
+        in_place = s.path.parent.resolve() == destination.parent.resolve()
         confidence = "high" if value >= 0.8 else "check"
-        print(f"[{confidence} {min(value, 1.0):.2f}] {s.path.name}\n    -> {destination}\n       ({note})")
+        action = "rename to" if in_place else "copy to"
+        print(f"[{confidence} {min(value, 1.0):.2f}] {s.path.name}\n    {action} {destination.name if in_place else destination}\n       ({note})")
         data, problem = convert(s, r, args.swap_words)
         if problem:
             print(f"       SKIPPED: {problem}")
@@ -301,8 +318,19 @@ def main():
             destination.parent.mkdir(parents=True, exist_ok=True)
             if destination.exists():
                 shutil.copy2(destination, destination.with_suffix(".sav.bak"))
-            destination.write_bytes(data)
-            copied += 1
+            if in_place:
+                original = s.path.read_bytes()
+                if data == original:
+                    os.replace(s.path, destination)
+                else:
+                    # keep the untouched original beside the converted save
+                    destination.write_bytes(data)
+                    os.replace(s.path, s.path.with_name(s.path.name + ".orig"))
+                with open(destination.parent / "rename_log.txt", "a", encoding="utf-8") as log:
+                    log.write(f"{s.path.name} -> {destination.name}\n")
+            else:
+                destination.write_bytes(data)
+            changed += 1
 
     unmatched = [s for s in saves if id(s) not in used_saves]
     if unmatched:
@@ -313,10 +341,12 @@ def main():
             print(f"    {s.path.name}{hint}")
 
     print()
+    if already:
+        print(f"{already} saves already have the right name.")
     if args.apply:
-        print(f"Copied {copied} saves, skipped {skipped}.")
+        print(f"Renamed or copied {changed} saves, skipped {skipped}.")
     else:
-        print(f"Dry run: {len(matched) - skipped} saves would be copied, {skipped} skipped. Check the list, then add --apply.")
+        print(f"Dry run: {len(matched) - skipped - already} saves would be renamed or copied, {skipped} skipped. Check the list, then add --apply.")
 
 
 if __name__ == "__main__":
