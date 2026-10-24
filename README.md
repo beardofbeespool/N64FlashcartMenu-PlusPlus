@@ -14,6 +14,31 @@ This menu is not affiliated with any particular flashcart and does not necessari
 > [!TIP]
 > New users are invited to read the latest [Documentation / User Guide](./docs/00_index.md).
 
+## About this fork
+This is a modified build of [N64FlashcartMenu](https://github.com/Polprzewodnikowy/N64FlashcartMenu) V0.3.5, not an official release. It adds one behavior for the SummerCart64: **launching a game makes it the autoload target, so the console boots straight back into your last game. Hold `START` while powering on to get the menu instead.**
+
+### What changed
+* `src/menu/views/load_rom.c`: after a successful ROM load, the ROM's folder and filename are saved as the autoload target. This is skipped when the boot was itself an autoload, so the SD card is not rewritten on every power-on.
+* `src/menu/views/load_rom.c`: removed the `free()` calls in `set_autoload_type`, which crashed when setting autoload from the ROM information screen.
+* `src/menu/views/startup.c`: the hold-`START` path now assigns heap strings (`strdup("")`) instead of string literals, so setting a new autoload afterwards does not free a literal. Added `#include <string.h>`.
+
+### Building
+The upstream autoload code is disabled by default, so it must be enabled with a build flag. Open the repo in the `N64FlashcartMenu-ci` dev container, then:
+
+```
+mkdir -p build output
+make clean
+make all FLAGS="-DFEATURE_AUTOLOAD_ROM_ENABLED"
+```
+
+Copy `output/sc64menu.n64` to the root of your SD card.
+
+### Behavior notes
+* The console's reset button goes through startup again, so it relaunches the last game. Hold `START` while resetting to reach the menu.
+* If the autoload ROM is moved, renamed or deleted, hold `START` at power-on to get back to the menu.
+* The autoload target is stored in the `[autoload]` section of `menu/config.ini` on the SD card.
+* Tested on a SummerCart64 only.
+
 ## Flashcart Support
 This menu aims to support as many N64 flashcarts as possible.  
 The current state of support is:
